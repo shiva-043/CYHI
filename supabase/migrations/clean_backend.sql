@@ -56,12 +56,16 @@ drop function if exists public.handle_new_user();
 drop function if exists public.set_content_audit_fields();
 drop function if exists public.set_updated_at();
 drop function if exists public.validate_section_professor();
-drop function if exists public.get_current_user_role();
-drop function if exists public.is_staff();
-drop function if exists public.is_professor_for_section(uuid);
-drop function if exists public.can_view_announcement(integer, text, text);
-drop function if exists public.can_view_timetable(uuid);
+drop function if exists public.can_manage_announcement_target(integer, text, text);
 drop function if exists public.can_manage_timetable(uuid);
+drop function if exists public.can_view_timetable(uuid);
+drop function if exists public.can_view_announcement(integer, text, text);
+drop function if exists public.can_manage_section(uuid);
+drop function if exists public.is_class_leader_for_section(uuid);
+drop function if exists public.is_professor_for_section(uuid);
+drop function if exists public.is_staff();
+drop function if exists public.is_staff_signup_authorized(text, text);
+drop function if exists public.get_current_user_role();
 
 create table public.sections (
   id uuid primary key default gen_random_uuid(),
@@ -240,6 +244,29 @@ as $$
   )
 $$;
 
+create function public.is_staff_signup_authorized(
+  requested_email text,
+  requested_role text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $$
+  select exists (
+    select 1
+    from public.staff_signup_authorizations staff_entry
+    where staff_entry.email = lower(btrim(requested_email))
+      and staff_entry.role = case lower(btrim(requested_role))
+        when 'cr' then 'class_leader'
+        when 'class_leader' then 'class_leader'
+        when 'professor' then 'professor'
+        else ''
+      end
+  )
+$$;
+
 create function public.is_professor_for_section(requested_section_id uuid)
 returns boolean
 language sql
@@ -408,15 +435,12 @@ begin
     else 'student'
   end;
 
-  -- A browser cannot grant itself a staff role. Only an email pre-authorized
-  -- by a database administrator receives class_leader or professor.
-  if requested_role in ('class_leader', 'professor') and not exists (
-    select 1
-    from public.staff_signup_authorizations staff_entry
-    where staff_entry.email = lower(new.email)
-      and staff_entry.role = requested_role
-  ) then
-    requested_role := 'student';
+  -- A browser cannot grant itself a staff role. Reject an unapproved request
+  -- instead of silently creating a Student profile.
+  if requested_role in ('class_leader', 'professor')
+    and not public.is_staff_signup_authorized(new.email, requested_role) then
+    raise exception 'Staff signup is not authorized for this email and role'
+      using errcode = '42501';
   end if;
 
   requested_branch := nullif(
@@ -450,7 +474,9 @@ begin
   raw_value := nullif(btrim(new.raw_user_meta_data ->> 'section_id'), '');
   if raw_value ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     begin
-      select section_record.id, section_record.branch, section_record.semester
+      select section_record.id,
+             coalesce(requested_branch, section_record.branch),
+             coalesce(requested_semester, section_record.semester)
       into requested_section_id, requested_branch, requested_semester
       from public.sections section_record
       where section_record.id = raw_value::uuid;
@@ -662,6 +688,7 @@ grant select, insert, update, delete on table public.timetable to authenticated;
 
 revoke all on function public.get_current_user_role() from public;
 revoke all on function public.is_staff() from public;
+revoke all on function public.is_staff_signup_authorized(text, text) from public;
 revoke all on function public.is_professor_for_section(uuid) from public;
 revoke all on function public.can_view_announcement(integer, text, text) from public;
 revoke all on function public.can_view_timetable(uuid) from public;
@@ -669,6 +696,8 @@ revoke all on function public.can_manage_timetable(uuid) from public;
 
 grant execute on function public.get_current_user_role() to authenticated;
 grant execute on function public.is_staff() to authenticated;
+grant execute on function public.is_staff_signup_authorized(text, text)
+  to anon, authenticated;
 grant execute on function public.is_professor_for_section(uuid) to authenticated;
 grant execute on function public.can_view_announcement(integer, text, text) to authenticated;
 grant execute on function public.can_view_timetable(uuid) to authenticated;
@@ -677,5 +706,30 @@ grant execute on function public.can_manage_timetable(uuid) to authenticated;
 revoke all on function public.handle_new_user() from public;
 revoke all on function public.validate_section_professor() from public;
 revoke all on function public.set_content_audit_fields() from public;
+
+-- Enable Realtime broadcast for timetable and announcements
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'timetable'
+    ) then
+      alter publication supabase_realtime add table public.timetable;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'announcements'
+    ) then
+      alter publication supabase_realtime add table public.announcements;
+    end if;
+  end if;
+end;
+$$;
 
 commit;

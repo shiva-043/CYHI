@@ -91,6 +91,8 @@ async function handleReminderAction(announcement, reminderButton) {
 }
 
 function formatDeadline(deadline) {
+  if (!deadline) return null
+
   const deadlineDate = new Date(deadline)
   if (Number.isNaN(deadlineDate.getTime())) return null
 
@@ -104,6 +106,8 @@ function formatDeadline(deadline) {
 }
 
 function toDateTimeLocal(value) {
+  if (!value) return ''
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
@@ -396,9 +400,14 @@ function refreshAnnouncementSections() {
   )]
 
   names.forEach((name) => announcementFields.section.add(new Option(name, name)))
-  announcementFields.section.value = names.includes(previousSection)
-    ? previousSection
-    : 'ALL'
+  const allowedValues = canTargetAll ? ['ALL', ...names] : names
+  if (allowedValues.includes(previousSection)) {
+    announcementFields.section.value = previousSection
+  } else if (names.length === 1 && !canTargetAll) {
+    announcementFields.section.value = names[0]
+  } else if (canTargetAll && (!previousSection || previousSection === 'ALL')) {
+    announcementFields.section.value = 'ALL'
+  }
 }
 
 async function loadUserRole() {
@@ -408,7 +417,6 @@ async function loadUserRole() {
     addAnnouncementButton.hidden = !canManageAnnouncements
 
     if (canManageAnnouncements) await loadBranches()
-    if (!announcementsLoadFailed) filterAnnouncements()
     return true
   } catch (error) {
     console.error('Unable to determine announcement permissions:', error)
@@ -444,10 +452,26 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !announcementModal.hidden) closeAnnouncementForm()
 })
 
+function subscribeToAnnouncementsRealtime() {
+  if (!window.supabaseClient) return null
+
+  return window.supabaseClient
+    .channel('announcements-live-updates')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'announcements' },
+      () => {
+        loadAnnouncements()
+      },
+    )
+    .subscribe()
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const isAuthenticated = await loadUserRole()
   if (!isAuthenticated) return
 
-  loadAnnouncements()
+  await loadAnnouncements()
+  subscribeToAnnouncementsRealtime()
   setInterval(loadAnnouncements, 60000)
 })
