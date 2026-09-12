@@ -3,8 +3,13 @@ const signupForm = document.querySelector('#signupForm')
 const nameInput = document.querySelector('#name')
 const userIdentityInput = document.querySelector('#userIdentity')
 const roleInput = document.querySelector('#role')
+const semesterInput = document.querySelector('#semester')
+const branchInput = document.querySelector('#branch')
+const sectionInput = document.querySelector('#section')
 const passwordInput = document.querySelector('#password')
 const confirmPasswordInput = document.querySelector('#confirmPassword')
+const studentDetailGroups = document.querySelectorAll('.student-detail')
+const studentDetailInputs = [semesterInput, branchInput, sectionInput]
 
 // Place an error below a field and mark that field as invalid.
 function showError(input, message) {
@@ -38,12 +43,34 @@ function setupPasswordToggle(inputId, buttonId, fieldName) {
 setupPasswordToggle('password', 'passwordToggle', 'password')
 setupPasswordToggle('confirmPassword', 'confirmPasswordToggle', 'confirm password')
 
+// Professors do not need Semester, Branch, or Section.
+// These fields remain visible and required for Student and CR.
+function updateStudentDetails() {
+  const isProfessor = roleInput.value === 'professor'
+
+  studentDetailGroups.forEach((group) => {
+    group.hidden = isProfessor
+  })
+
+  studentDetailInputs.forEach((input) => {
+    input.disabled = isProfessor
+    if (isProfessor) clearError(input)
+  })
+}
+
+roleInput.addEventListener('change', updateStudentDetails)
+updateStudentDetails()
+
 signupForm.addEventListener('submit', (event) => {
   event.preventDefault()
 
   const nameIsValid = nameInput.value.trim() !== ''
   const identityIsValid = userIdentityInput.value.trim() !== ''
   const roleIsValid = roleInput.value !== ''
+  const studentDetailsAreRequired = roleInput.value !== 'professor'
+  const semesterIsValid = !studentDetailsAreRequired || semesterInput.value !== ''
+  const branchIsValid = !studentDetailsAreRequired || branchInput.value !== ''
+  const sectionIsValid = !studentDetailsAreRequired || sectionInput.value.trim() !== ''
   const passwordIsValid = passwordInput.value.trim() !== ''
   const confirmationIsPresent = confirmPasswordInput.value.trim() !== ''
   const passwordsMatch = passwordInput.value === confirmPasswordInput.value
@@ -59,6 +86,18 @@ signupForm.addEventListener('submit', (event) => {
   roleIsValid
     ? clearError(roleInput)
     : showError(roleInput, 'Please select a role.')
+
+  semesterIsValid
+    ? clearError(semesterInput)
+    : showError(semesterInput, 'Please select a semester.')
+
+  branchIsValid
+    ? clearError(branchInput)
+    : showError(branchInput, 'Please select a branch.')
+
+  sectionIsValid
+    ? clearError(sectionInput)
+    : showError(sectionInput, 'Section cannot be empty.')
 
   passwordIsValid
     ? clearError(passwordInput)
@@ -76,6 +115,9 @@ signupForm.addEventListener('submit', (event) => {
     nameIsValid &&
     identityIsValid &&
     roleIsValid &&
+    semesterIsValid &&
+    branchIsValid &&
+    sectionIsValid &&
     passwordIsValid &&
     confirmationIsPresent &&
     passwordsMatch

@@ -70,6 +70,47 @@
             <p class="field-error" id="roleError" aria-live="polite"></p>
           </div>
 
+          <div class="form-group student-detail">
+            <label for="semester">Semester</label>
+            <select id="semester" name="semester" aria-describedby="semesterError">
+              <option value="" selected disabled>Select your semester</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+            <p class="field-error" id="semesterError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group student-detail">
+            <label for="branch">Branch</label>
+            <select id="branch" name="branch" aria-describedby="branchError">
+              <option value="" selected disabled>Select your branch</option>
+              <option value="cse">CSE</option>
+              <option value="ece">ECE</option>
+              <option value="mech">MECH</option>
+              <option value="sm">SM</option>
+            </select>
+            <p class="field-error" id="branchError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group student-detail">
+            <label for="section">Section</label>
+            <input
+              id="section"
+              name="section"
+              type="text"
+              placeholder="Enter your section"
+              autocomplete="off"
+              aria-describedby="sectionError"
+            />
+            <p class="field-error" id="sectionError" aria-live="polite"></p>
+          </div>
+
           <div class="form-group">
             <label for="password">Password</label>
             <div class="password-field">
