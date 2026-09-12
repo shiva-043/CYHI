@@ -1,44 +1,55 @@
-// Shared authentication helpers for pages with role-based controls.
-// The backend remains the final authority for every protected request.
-const AUTH_API_BASE_URL = 'http://localhost:3000/api'
+// Shared authentication and profile helpers for protected pages.
+const PROFILE_COLUMNS = 'id, full_name, email, role, branch, admission_year, section_id, semester'
 
-async function apiFetch(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    credentials: 'include',
-  })
-
-  if (response.status === 401) {
-    window.location.href = 'login.html'
-    throw new Error('Authentication required.')
-  }
-
-  if (response.status === 403) {
-    const permissionError = new Error('You do not have permission to perform this action.')
-    permissionError.name = 'PermissionError'
-    throw permissionError
-  }
-
-  return response
+async function getSession() {
+  const { data, error } = await window.supabaseClient.auth.getSession()
+  if (error) throw error
+  return data.session
 }
 
-async function getAuthenticatedUser() {
-  const response = await apiFetch(`${AUTH_API_BASE_URL}/user/profile`)
+async function getAuthenticatedUser(redirectWhenMissing = true) {
+  const { data, error } = await window.supabaseClient.auth.getUser()
 
-  if (!response.ok) {
-    throw new Error(`Unable to load user role. Status: ${response.status}`)
+  if (error || !data.user) {
+    if (redirectWhenMissing) window.location.replace('login.html')
+    throw error || new Error('Authentication required.')
   }
 
-  return response.json()
+  const { data: profile, error: profileError } = await window.supabaseClient
+    .from('profiles')
+    .select(PROFILE_COLUMNS)
+    .eq('id', data.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    const missingProfileError = new Error('Your account does not have a profile.')
+    missingProfileError.name = 'ProfileError'
+    missingProfileError.cause = profileError
+    throw missingProfileError
+  }
+
+  return {
+    ...profile,
+    authUser: data.user,
+    name: profile.full_name,
+    department: profile.branch,
+    semester: profile.semester,
+  }
 }
 
 function canManageContent(user) {
-  const role = String(user?.role || '').toLowerCase()
-  return role === 'cr' || role === 'professor'
+  return ['class_leader', 'professor'].includes(String(user?.role || '').toLowerCase())
+}
+
+async function signOut() {
+  const { error } = await window.supabaseClient.auth.signOut({ scope: 'local' })
+  if (error) throw error
+  window.location.replace('login.html')
 }
 
 window.CampusAuth = Object.freeze({
-  apiFetch,
   canManageContent,
   getAuthenticatedUser,
+  getSession,
+  signOut,
 })

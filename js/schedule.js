@@ -1,5 +1,3 @@
-const API_BASE_URL = 'http://localhost:3000/api'
-
 const selectedDay = document.querySelector('#selectedDay')
 const scheduleList = document.querySelector('#scheduleList')
 const nextClassContent = document.querySelector('#nextClassContent')
@@ -16,18 +14,42 @@ const classFields = {
   id: document.querySelector('#classId'),
   subject: document.querySelector('#classSubject'),
   room: document.querySelector('#classRoom'),
-  date: document.querySelector('#classDate'),
+  day: document.querySelector('#classDay'),
   type: document.querySelector('#classType'),
   startTime: document.querySelector('#classStartTime'),
   endTime: document.querySelector('#classEndTime'),
-  semester: document.querySelector('#classSemester'),
   branch: document.querySelector('#classBranch'),
+  semester: document.querySelector('#classSemester'),
   section: document.querySelector('#classSection'),
 }
 
 let todaySchedule = []
 let scheduleLoadFailed = false
 let canManageSchedule = false
+let currentProfile = null
+let availableSections = []
+
+function isPermissionError(error) {
+  return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
+}
+
+function combineTodayWithTime(time) {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}T${time}`
+}
+
+function normalizeScheduleItem(item) {
+  return {
+    ...item,
+    type: item.type,
+    startTime: combineTodayWithTime(item.start_time),
+    endTime: combineTodayWithTime(item.end_time),
+    targetSection: item.section_id,
+  }
+}
 
 function formatTime(value) {
   const date = value instanceof Date ? value : new Date(value)
@@ -79,26 +101,40 @@ function openClassForm(scheduleItem = null) {
   if (scheduleItem) {
     const start = splitDateTime(scheduleItem.startTime)
     const end = splitDateTime(scheduleItem.endTime)
+    const selectedSection = availableSections.find(
+      (section) => String(section.id) === String(scheduleItem.section_id),
+    )
     classFields.subject.value = scheduleItem.subject || ''
     classFields.room.value = scheduleItem.room || ''
-    classFields.date.value = start.date
+    classFields.day.value = scheduleItem.day_of_week || 'Monday'
     classFields.type.value = scheduleItem.type || 'class'
     classFields.startTime.value = start.time
     classFields.endTime.value = end.time
-    classFields.semester.value = String(
-      getScheduleValue(scheduleItem, 'targetSemester', 'target_semester') || '1',
-    )
-    classFields.branch.value = String(
-      getScheduleValue(scheduleItem, 'targetBranch', 'target_branch') || 'CSE',
-    )
+    classFields.branch.value = selectedSection?.branch || ''
+    classFields.semester.value = String(selectedSection?.semester || '1')
+    refreshSectionOptions()
     classFields.section.value = String(
-      getScheduleValue(scheduleItem, 'targetSection', 'target_section') || 'ALL',
+      getScheduleValue(scheduleItem, 'targetSection', 'section_id') || '',
     )
+  } else {
+    classFields.day.value = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    classFields.branch.value = currentProfile?.branch || availableSections[0]?.branch || ''
+    classFields.semester.value = String(currentProfile?.semester || '1')
+    refreshSectionOptions()
+    classFields.section.value = String(currentProfile?.section_id || '')
   }
 
+  updateClassTypeFields()
   classModal.hidden = false
   document.body.classList.add('modal-open')
   classFields.subject.focus()
+}
+
+function updateClassTypeFields() {
+  const isClass = classFields.type.value === 'class'
+  classFields.subject.required = isClass
+  classFields.room.disabled = !isClass
+  classFields.room.required = isClass
 }
 
 function closeClassForm() {
@@ -107,16 +143,17 @@ function closeClassForm() {
 }
 
 function getClassPayload() {
+  const selectedType = classFields.type.value
   return {
-    subject: classFields.subject.value.trim(),
-    room: classFields.type.value === 'class' ? classFields.room.value.trim() : '',
-    date: classFields.date.value,
-    startTime: `${classFields.date.value}T${classFields.startTime.value}:00`,
-    endTime: `${classFields.date.value}T${classFields.endTime.value}:00`,
-    type: classFields.type.value,
-    targetSemester: Number(classFields.semester.value),
-    targetBranch: classFields.branch.value,
-    targetSection: classFields.section.value,
+    subject: selectedType === 'class'
+      ? classFields.subject.value.trim()
+      : selectedType[0].toUpperCase() + selectedType.slice(1),
+    room: selectedType === 'class' ? classFields.room.value.trim() : '',
+    day_of_week: classFields.day.value,
+    start_time: `${classFields.startTime.value}:00`,
+    end_time: `${classFields.endTime.value}:00`,
+    type: selectedType,
+    section_id: classFields.section.value,
   }
 }
 
@@ -125,27 +162,21 @@ async function saveClass(event) {
   if (!classForm.reportValidity()) return
 
   const payload = getClassPayload()
-  if (new Date(payload.endTime) <= new Date(payload.startTime)) {
+  if (payload.end_time <= payload.start_time) {
     scheduleManagementStatus.textContent = 'End Time must be later than Start Time.'
     return
   }
 
   const classId = classFields.id.value
   const isEditing = classId !== ''
-  const endpoint = isEditing
-    ? `${API_BASE_URL}/timetable/${encodeURIComponent(classId)}`
-    : `${API_BASE_URL}/timetable`
-
   scheduleManagementStatus.textContent = 'Saving timetable entry...'
 
   try {
-    const response = await window.CampusAuth.apiFetch(endpoint, {
-      method: isEditing ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    const query = isEditing
+      ? window.supabaseClient.from('timetable').update(payload).eq('id', classId)
+      : window.supabaseClient.from('timetable').insert(payload)
+    const { error } = await query
+    if (error) throw error
 
     closeClassForm()
     scheduleManagementStatus.textContent = isEditing
@@ -154,8 +185,8 @@ async function saveClass(event) {
     await loadSchedule()
   } catch (error) {
     console.error('Unable to save timetable entry:', error)
-    scheduleManagementStatus.textContent = error.name === 'PermissionError'
-      ? error.message
+    scheduleManagementStatus.textContent = isPermissionError(error)
+      ? 'You do not have permission to perform this action.'
       : 'Unable to save the timetable entry. Please try again.'
   }
 }
@@ -167,19 +198,18 @@ async function deleteClass(scheduleItem) {
   scheduleManagementStatus.textContent = 'Deleting timetable entry...'
 
   try {
-    const response = await window.CampusAuth.apiFetch(
-      `${API_BASE_URL}/timetable/${encodeURIComponent(scheduleItem.id)}`,
-      { method: 'DELETE' },
-    )
-
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    const { error } = await window.supabaseClient
+      .from('timetable')
+      .delete()
+      .eq('id', scheduleItem.id)
+    if (error) throw error
 
     scheduleManagementStatus.textContent = 'Timetable entry deleted successfully.'
     await loadSchedule()
   } catch (error) {
     console.error('Unable to delete timetable entry:', error)
-    scheduleManagementStatus.textContent = error.name === 'PermissionError'
-      ? error.message
+    scheduleManagementStatus.textContent = isPermissionError(error)
+      ? 'You do not have permission to perform this action.'
       : 'Unable to delete the timetable entry. Please try again.'
   }
 }
@@ -317,11 +347,23 @@ function displayScheduleError() {
 
 async function loadSchedule() {
   try {
-    const response = await window.CampusAuth.apiFetch(`${API_BASE_URL}/timetable/today`)
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    if (!currentProfile) currentProfile = await window.CampusAuth.getAuthenticatedUser()
 
-    const schedule = await response.json()
-    if (!Array.isArray(schedule)) throw new Error('The timetable response is not an array.')
+    let query = window.supabaseClient
+      .from('timetable')
+      .select('*')
+      .order('start_time')
+
+    if (currentProfile.section_id != null) {
+      query = query.eq('section_id', currentProfile.section_id)
+    }
+    const { data, error } = await query
+    if (error) throw error
+
+    const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+    const schedule = data
+      .filter((item) => String(item.day_of_week || '').toLowerCase() === weekday)
+      .map(normalizeScheduleItem)
 
     todaySchedule = schedule
     scheduleLoadFailed = false
@@ -334,43 +376,74 @@ async function loadSchedule() {
   }
 }
 
-async function loadBranches() {
+async function loadSections() {
   try {
-    const response = await window.CampusAuth.apiFetch(`${API_BASE_URL}/branches`)
-    if (!response.ok) return
+    const { data: sections, error } = await window.supabaseClient
+      .from('sections')
+      .select('id, name, branch, semester')
+      .order('branch')
+      .order('semester')
+      .order('name')
+    if (error) throw error
 
-    const branches = await response.json()
-    if (!Array.isArray(branches)) return
+    if (currentProfile.role === 'professor') {
+      const { data: assignments, error: assignmentError } = await window.supabaseClient
+        .from('section_professors')
+        .select('section_id')
+        .eq('professor_id', currentProfile.id)
+      if (assignmentError) throw assignmentError
 
-    const select = classFields.branch
-    const existingValues = new Set([...select.options].map((option) => option.value))
-    branches.forEach((branch) => {
-      const branchCode = typeof branch === 'string' ? branch : branch.code
-      if (!branchCode || existingValues.has(branchCode)) return
+      const assignedIds = new Set(assignments.map((item) => String(item.section_id)))
+      availableSections = sections.filter((section) => assignedIds.has(String(section.id)))
+    } else {
+      availableSections = sections
+    }
 
-      const option = document.createElement('option')
-      option.value = branchCode
-      option.textContent = branchCode
-      select.append(option)
-      existingValues.add(branchCode)
-    })
+    const branches = [...new Set(availableSections.map((section) => section.branch))]
+    classFields.branch.replaceChildren(new Option('Select branch', '', true, true))
+    classFields.branch.options[0].disabled = true
+    branches.forEach((branch) => classFields.branch.add(new Option(branch, branch)))
+    refreshSectionOptions()
   } catch (error) {
-    console.error('Unable to load additional branches:', error)
+    console.error('Unable to load sections:', error)
+    scheduleManagementStatus.textContent = 'Unable to load the available sections.'
+  }
+}
+
+function refreshSectionOptions() {
+  const previousSection = classFields.section.value
+  classFields.section.replaceChildren(new Option('Select section', '', true, true))
+  classFields.section.options[0].disabled = true
+
+  availableSections
+    .filter((section) => (
+      section.branch === classFields.branch.value &&
+      Number(section.semester) === Number(classFields.semester.value)
+    ))
+    .forEach((section) => {
+      classFields.section.add(new Option(section.name, section.id))
+    })
+
+  if ([...classFields.section.options].some((option) => option.value === previousSection)) {
+    classFields.section.value = previousSection
   }
 }
 
 async function loadUserRole() {
   try {
     const user = await window.CampusAuth.getAuthenticatedUser()
+    currentProfile = user
     canManageSchedule = window.CampusAuth.canManageContent(user)
     addClassButton.hidden = !canManageSchedule
 
-    if (canManageSchedule) await loadBranches()
+    if (canManageSchedule) await loadSections()
     if (!scheduleLoadFailed) displaySchedule(todaySchedule)
+    return true
   } catch (error) {
     console.error('Unable to determine timetable permissions:', error)
     canManageSchedule = false
     addClassButton.hidden = true
+    return false
   }
 }
 
@@ -378,6 +451,9 @@ addClassButton.addEventListener('click', () => openClassForm())
 classForm.addEventListener('submit', saveClass)
 closeClassFormButton.addEventListener('click', closeClassForm)
 cancelClassFormButton.addEventListener('click', closeClassForm)
+classFields.type.addEventListener('change', updateClassTypeFields)
+classFields.branch.addEventListener('change', refreshSectionOptions)
+classFields.semester.addEventListener('change', refreshSectionOptions)
 classModal.addEventListener('click', (event) => {
   if (event.target === classModal) closeClassForm()
 })
@@ -385,10 +461,12 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !classModal.hidden) closeClassForm()
 })
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   displaySelectedDay()
+  const isAuthenticated = await loadUserRole()
+  if (!isAuthenticated) return
+
   loadSchedule()
-  loadUserRole()
 
   setInterval(() => {
     displaySelectedDay()

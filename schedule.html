@@ -73,8 +73,16 @@
 
           <div class="class-field-row">
             <div class="class-field">
-              <label for="classDate">Date</label>
-              <input id="classDate" type="date" required />
+              <label for="classDay">Day</label>
+              <select id="classDay" required>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
             </div>
             <div class="class-field">
               <label for="classType">Type</label>
@@ -99,6 +107,12 @@
 
           <div class="class-field-row target-row">
             <div class="class-field">
+              <label for="classBranch">Branch</label>
+              <select id="classBranch" required>
+                <option value="" selected disabled>Select branch</option>
+              </select>
+            </div>
+            <div class="class-field">
               <label for="classSemester">Semester</label>
               <select id="classSemester" required>
                 <option value="1">1</option><option value="2">2</option>
@@ -108,19 +122,9 @@
               </select>
             </div>
             <div class="class-field">
-              <label for="classBranch">Branch</label>
-              <select id="classBranch" class="branch-select" required>
-                <option value="CSE">CSE</option>
-                <option value="ECE">ECE</option>
-                <option value="ME">ME</option>
-              </select>
-            </div>
-            <div class="class-field">
               <label for="classSection">Section</label>
               <select id="classSection" required>
-                <option value="ALL">ALL</option>
-                <option value="A">A</option><option value="B">B</option>
-                <option value="C">C</option><option value="D">D</option>
+                <option value="" selected disabled>Select section</option>
               </select>
             </div>
           </div>
@@ -135,6 +139,8 @@
 
     <footer class="schedule-footer">IIITDM Jabalpur Campus Companion</footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/supabase.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/schedule.js" defer></script>
   </body>

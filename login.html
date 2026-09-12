@@ -34,13 +34,13 @@
 
         <form id="loginForm" novalidate>
           <div class="form-group">
-            <label for="username">Username</label>
+            <label for="username">Username / Email</label>
             <input
               id="username"
               name="username"
-              type="text"
-              placeholder="Enter your username"
-              autocomplete="username"
+              type="email"
+              placeholder="Enter your email"
+              autocomplete="email"
               aria-describedby="usernameError"
             />
             <p class="field-error" id="usernameError" aria-live="polite"></p>
@@ -76,7 +76,8 @@
           </div>
           <p class="recovery-message" id="recoveryMessage" aria-live="polite"></p>
 
-          <button class="auth-submit" type="submit">Login</button>
+          <p class="auth-status" id="loginStatus" aria-live="polite"></p>
+          <button class="auth-submit" id="loginButton" type="submit">Login</button>
         </form>
 
         <p class="auth-switch">
@@ -85,6 +86,8 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/supabase.js" defer></script>
     <script src="js/login.js" defer></script>
   </body>
 </html>

@@ -5,6 +5,8 @@ const passwordInput = document.querySelector('#password')
 const passwordToggle = document.querySelector('#passwordToggle')
 const forgotPassword = document.querySelector('#forgotPassword')
 const recoveryMessage = document.querySelector('#recoveryMessage')
+const loginStatus = document.querySelector('#loginStatus')
+const loginButton = document.querySelector('#loginButton')
 
 // Place an error below a field and mark that field as invalid.
 function showError(input, message) {
@@ -34,24 +36,78 @@ forgotPassword.addEventListener('click', () => {
   recoveryMessage.textContent = 'Password recovery functionality coming soon.'
 })
 
-loginForm.addEventListener('submit', (event) => {
+function getLoginErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase()
+  if (message.includes('invalid login credentials')) return 'Invalid email or password.'
+  if (message.includes('email not confirmed')) return 'Confirm your email before logging in.'
+  return 'Unable to log in. Please try again.'
+}
+
+loginForm.addEventListener('submit', async (event) => {
   event.preventDefault()
 
   const usernameIsValid = usernameInput.value.trim() !== ''
+  const emailIsValid = usernameIsValid && usernameInput.validity.valid
   const passwordIsValid = passwordInput.value.trim() !== ''
 
   usernameIsValid
     ? clearError(usernameInput)
     : showError(usernameInput, 'Username cannot be empty.')
 
+  if (usernameIsValid && !emailIsValid) {
+    showError(usernameInput, 'Enter a valid email address.')
+  }
+
   passwordIsValid
     ? clearError(passwordInput)
     : showError(passwordInput, 'Password cannot be empty.')
 
-  if (usernameIsValid && passwordIsValid) {
-    // This opens the dashboard after the current frontend validation.
-    // When the backend is connected, move this redirect after a successful
-    // login response so the server still decides whether the login is valid.
-    window.location.href = 'dashboard.html'
+  if (!emailIsValid || !passwordIsValid) return
+
+  loginStatus.textContent = 'Logging in...'
+  loginButton.disabled = true
+
+  try {
+    const { error: loginError } = await window.supabaseClient.auth.signInWithPassword({
+      email: usernameInput.value.trim().toLowerCase(),
+      password: passwordInput.value,
+    })
+    if (loginError) throw loginError
+
+    const { data: userData, error: userError } = await window.supabaseClient.auth.getUser()
+    if (userError || !userData.user) throw userError || new Error('Authentication failed.')
+
+    const { data: profile, error: profileError } = await window.supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('id', userData.user.id)
+      .single()
+
+    if (profileError || !profile) {
+      await window.supabaseClient.auth.signOut({ scope: 'local' })
+      loginStatus.textContent = 'Your account does not have a profile. Contact an administrator.'
+      return
+    }
+
+    window.location.replace('dashboard.html')
+  } catch (error) {
+    console.error('Login failed:', error)
+    loginStatus.textContent = getLoginErrorMessage(error)
+  } finally {
+    loginButton.disabled = false
   }
+})
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const signupResult = new URLSearchParams(window.location.search).get('signup')
+  if (signupResult === 'confirm-email') {
+    loginStatus.classList.add('success-message')
+    loginStatus.textContent = 'Account created. Check your inbox and confirm your email before logging in.'
+  } else if (signupResult === 'success') {
+    loginStatus.classList.add('success-message')
+    loginStatus.textContent = 'Account created successfully. You can now log in.'
+  }
+
+  const { data, error } = await window.supabaseClient.auth.getSession()
+  if (!error && data.session) window.location.replace('dashboard.html')
 })
