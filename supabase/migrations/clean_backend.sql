@@ -56,15 +56,12 @@ drop function if exists public.handle_new_user();
 drop function if exists public.set_content_audit_fields();
 drop function if exists public.set_updated_at();
 drop function if exists public.validate_section_professor();
-drop function if exists public.can_manage_announcement_target(integer, text, text);
-drop function if exists public.can_manage_timetable(uuid);
-drop function if exists public.can_view_timetable(uuid);
-drop function if exists public.can_view_announcement(integer, text, text);
-drop function if exists public.can_manage_section(uuid);
-drop function if exists public.is_class_leader_for_section(uuid);
-drop function if exists public.is_professor_for_section(uuid);
-drop function if exists public.is_staff();
 drop function if exists public.get_current_user_role();
+drop function if exists public.is_staff();
+drop function if exists public.is_professor_for_section(uuid);
+drop function if exists public.can_view_announcement(integer, text, text);
+drop function if exists public.can_view_timetable(uuid);
+drop function if exists public.can_manage_timetable(uuid);
 
 create table public.sections (
   id uuid primary key default gen_random_uuid(),
@@ -258,77 +255,6 @@ as $$
   )
 $$;
 
-create function public.is_class_leader_for_section(requested_section_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path to ''
-as $$
-  select exists (
-    select 1
-    from public.profiles profile
-    where profile.id = auth.uid()
-      and profile.role = 'class_leader'
-      and profile.section_id = requested_section_id
-  )
-$$;
-
-create function public.can_manage_section(requested_section_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path to ''
-as $$
-  select case public.get_current_user_role()
-    when 'class_leader' then
-      public.is_class_leader_for_section(requested_section_id)
-    when 'professor' then
-      public.is_professor_for_section(requested_section_id)
-    else false
-  end
-$$;
-
-create function public.can_manage_announcement_target(
-  announcement_semester integer,
-  announcement_branch text,
-  announcement_section text
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path to ''
-as $$
-  select case
-    when announcement_semester not between 1 and 8 then false
-    when nullif(btrim(announcement_branch), '') is null then false
-    when upper(coalesce(announcement_section, 'ALL')) = 'ALL' then
-      exists (
-        select 1
-        from public.sections section_record
-        where section_record.semester = announcement_semester
-          and section_record.branch = upper(announcement_branch)
-      )
-      and not exists (
-        select 1
-        from public.sections section_record
-        where section_record.semester = announcement_semester
-          and section_record.branch = upper(announcement_branch)
-          and not public.can_manage_section(section_record.id)
-      )
-    else exists (
-      select 1
-      from public.sections section_record
-      where section_record.semester = announcement_semester
-        and section_record.branch = upper(announcement_branch)
-        and section_record.name = upper(announcement_section)
-        and public.can_manage_section(section_record.id)
-    )
-  end
-$$;
-
 create function public.can_view_announcement(
   announcement_semester integer,
   announcement_branch text,
@@ -343,28 +269,21 @@ as $$
   select exists (
     select 1
     from public.profiles profile
-    join public.sections section_record
+    left join public.sections section_record
       on section_record.id = profile.section_id
     where profile.id = auth.uid()
-      and profile.role in ('student', 'class_leader')
-      and section_record.semester = announcement_semester
-      and section_record.branch = upper(announcement_branch)
       and (
-        upper(coalesce(announcement_section, 'ALL')) = 'ALL'
-        or section_record.name = upper(announcement_section)
-      )
-  )
-  or exists (
-    select 1
-    from public.section_professors assignment
-    join public.sections section_record
-      on section_record.id = assignment.section_id
-    where assignment.professor_id = auth.uid()
-      and section_record.semester = announcement_semester
-      and section_record.branch = upper(announcement_branch)
-      and (
-        upper(coalesce(announcement_section, 'ALL')) = 'ALL'
-        or section_record.name = upper(announcement_section)
+        profile.role in ('class_leader', 'professor')
+        or (
+          profile.role = 'student'
+          and profile.semester = announcement_semester
+          and profile.branch = announcement_branch
+          and (
+            announcement_section is null
+            or upper(announcement_section) = 'ALL'
+            or section_record.name = upper(announcement_section)
+          )
+        )
       )
   )
 $$;
@@ -381,8 +300,9 @@ as $$
     from public.profiles profile
     where profile.id = auth.uid()
       and (
-        (
-          profile.role in ('student', 'class_leader')
+        profile.role = 'class_leader'
+        or (
+          profile.role = 'student'
           and profile.section_id = requested_section_id
         )
         or (
@@ -400,7 +320,11 @@ stable
 security definer
 set search_path to ''
 as $$
-  select public.can_manage_section(requested_section_id)
+  select case public.get_current_user_role()
+    when 'class_leader' then true
+    when 'professor' then public.is_professor_for_section(requested_section_id)
+    else false
+  end
 $$;
 
 -- Enforce the professor role even for trusted SQL inserts.
@@ -656,12 +580,15 @@ on public.sections for select
 to authenticated
 using (true);
 
--- Professors can read only their own section assignments. No client write
--- policy is created; assignments remain administrator-maintained.
-create policy section_professors_select_own
+-- Professors can see their assignments. Class leaders can see all assignments
+-- for schedule management. No client write policy is created.
+create policy section_professors_select_staff
 on public.section_professors for select
 to authenticated
-using (professor_id = auth.uid());
+using (
+  professor_id = auth.uid()
+  or public.get_current_user_role() = 'class_leader'
+);
 
 -- Announcement targeting is enforced before rows reach the browser.
 create policy announcements_select_targeted
@@ -675,46 +602,24 @@ using (
   )
 );
 
-create policy announcements_insert_scoped
+create policy announcements_insert_staff
 on public.announcements for insert
 to authenticated
 with check (
-  created_by = auth.uid()
-  and public.can_manage_announcement_target(
-    target_semester,
-    target_branch,
-    target_section
-  )
+  public.is_staff()
+  and created_by = auth.uid()
 );
 
-create policy announcements_update_scoped
+create policy announcements_update_staff
 on public.announcements for update
 to authenticated
-using (
-  public.can_manage_announcement_target(
-    target_semester,
-    target_branch,
-    target_section
-  )
-)
-with check (
-  public.can_manage_announcement_target(
-    target_semester,
-    target_branch,
-    target_section
-  )
-);
+using (public.is_staff())
+with check (public.is_staff());
 
-create policy announcements_delete_scoped
+create policy announcements_delete_staff
 on public.announcements for delete
 to authenticated
-using (
-  public.can_manage_announcement_target(
-    target_semester,
-    target_branch,
-    target_section
-  )
-);
+using (public.is_staff());
 
 -- Timetable visibility and modification are section-aware.
 create policy timetable_select_authorized
@@ -758,9 +663,6 @@ grant select, insert, update, delete on table public.timetable to authenticated;
 revoke all on function public.get_current_user_role() from public;
 revoke all on function public.is_staff() from public;
 revoke all on function public.is_professor_for_section(uuid) from public;
-revoke all on function public.is_class_leader_for_section(uuid) from public;
-revoke all on function public.can_manage_section(uuid) from public;
-revoke all on function public.can_manage_announcement_target(integer, text, text) from public;
 revoke all on function public.can_view_announcement(integer, text, text) from public;
 revoke all on function public.can_view_timetable(uuid) from public;
 revoke all on function public.can_manage_timetable(uuid) from public;
@@ -768,10 +670,6 @@ revoke all on function public.can_manage_timetable(uuid) from public;
 grant execute on function public.get_current_user_role() to authenticated;
 grant execute on function public.is_staff() to authenticated;
 grant execute on function public.is_professor_for_section(uuid) to authenticated;
-grant execute on function public.is_class_leader_for_section(uuid) to authenticated;
-grant execute on function public.can_manage_section(uuid) to authenticated;
-grant execute on function public.can_manage_announcement_target(integer, text, text)
-  to authenticated;
 grant execute on function public.can_view_announcement(integer, text, text) to authenticated;
 grant execute on function public.can_view_timetable(uuid) to authenticated;
 grant execute on function public.can_manage_timetable(uuid) to authenticated;
