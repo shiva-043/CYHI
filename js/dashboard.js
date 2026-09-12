@@ -206,6 +206,20 @@ function displayEvents(events) {
   })
 }
 
+function formatEventDate(deadline) {
+  if (!deadline) return ''
+  const date = new Date(deadline)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString([], { day: 'numeric', month: 'short' })
+}
+
+function formatEventTime(deadline) {
+  if (!deadline) return ''
+  const date = new Date(deadline)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
 async function getUpcomingEvents() {
   try {
     const { data: events, error } = await window.supabaseClient
@@ -213,17 +227,21 @@ async function getUpcomingEvents() {
       .select('*')
       .eq('category', 'Events')
       .order('created_at', { ascending: false })
-      .limit(3)
+      .limit(6)
     if (error) throw error
 
-    displayEvents(events.map((event) => ({
+    const now = new Date()
+    const futureEvents = events.filter((event) => {
+      if (!event.deadline) return true
+      const d = new Date(event.deadline)
+      return Number.isNaN(d.getTime()) || d >= now
+    })
+    const selectedEvents = (futureEvents.length > 0 ? futureEvents : events).slice(0, 3)
+
+    displayEvents(selectedEvents.map((event) => ({
       ...event,
-      date: event.deadline
-        ? new Date(event.deadline).toLocaleDateString([], { day: 'numeric', month: 'short' })
-        : '',
-      time: event.deadline
-        ? new Date(event.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-        : '',
+      date: formatEventDate(event.deadline),
+      time: formatEventTime(event.deadline),
     })))
   } catch (error) {
     console.error('Unable to load upcoming events:', error)
@@ -259,8 +277,32 @@ importantContent.addEventListener('click', (event) => {
   }
 })
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadDashboard()
+function subscribeToDashboardRealtime() {
+  if (!window.supabaseClient) return null
+
+  return window.supabaseClient
+    .channel('dashboard-live-updates')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'timetable' },
+      () => {
+        getTimetable()
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'announcements' },
+      () => {
+        getImportantUpdates()
+        getUpcomingEvents()
+      },
+    )
+    .subscribe()
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDashboard()
+  subscribeToDashboardRealtime()
 
   // Refresh changing information and recalculate the countdown every minute.
   setInterval(loadChangingDashboardData, 60000)

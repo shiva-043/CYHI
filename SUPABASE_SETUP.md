@@ -38,6 +38,22 @@ role only when the email and requested role match an administrator-created row
 in `staff_signup_authorizations`. This prevents a visitor from granting
 themselves announcement and timetable management permissions.
 
+To approve a future CR or Professor before signup, run one of these statements
+in Supabase SQL Editor with the real campus email:
+
+```sql
+insert into public.staff_signup_authorizations (email, role)
+values ('cr-email@iiitdmj.ac.in', 'class_leader');
+
+insert into public.staff_signup_authorizations (email, role)
+values ('professor-email@iiitdmj.ac.in', 'professor');
+```
+
+The signup page checks this authorization before creating the Auth account. An
+unapproved staff request is rejected clearly and is never silently stored as a
+Student. `approve_existing_staff_requests.sql` is a one-time migration for the
+confirmed staff test accounts that were created before this check existed.
+
 ## Application data model
 
 - `profiles` stores public application identity and batch assignment.
@@ -66,3 +82,15 @@ The existing Announcements UI calls a Supabase Edge Function named
 `schedule-announcement-reminder`. The clean SQL migration does not create or
 deploy that Edge Function. Review it separately before enabling production
 email reminders.
+
+## Live automatic updates (Realtime)
+
+Frontend clients subscribe to Supabase Realtime changes on `public.timetable` and
+`public.announcements`. Whenever a CR or Professor creates, edits, or deletes a
+schedule entry for a section, all connected student clients of that section
+automatically receive the update and re-render their schedule and next class
+countdown without refreshing the page.
+
+To ensure Realtime is enabled in your database, run `enable_realtime.sql` in the
+Supabase SQL Editor or toggle Replication for `timetable` and `announcements` in
+the Supabase Dashboard.

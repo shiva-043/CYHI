@@ -58,6 +58,7 @@ function normalizeScheduleItem(item) {
 }
 
 function formatTime(value) {
+  if (!value) return ''
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
@@ -91,6 +92,7 @@ function getScheduleValue(scheduleItem, camelCaseKey, snakeCaseKey) {
 }
 
 function splitDateTime(value) {
+  if (!value) return { date: '', time: '' }
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return { date: '', time: '' }
 
@@ -264,10 +266,18 @@ function createScheduleItem(scheduleItem) {
   subject.textContent = scheduleItem.subject || (itemType === 'free' ? 'Free' : 'Untitled')
   details.append(subject)
 
-  if (itemType === 'class' && scheduleItem.room) {
+  if (itemType === 'class') {
     const room = document.createElement('p')
-    room.textContent = scheduleItem.room
-    details.append(room)
+    const sectionObj = availableSections.find(
+      (s) => String(s.id) === String(scheduleItem.section_id),
+    )
+    const sectionLabel = sectionObj ? `${sectionObj.branch} Sem ${sectionObj.semester} • Sec ${sectionObj.name}` : ''
+    const parts = [
+      scheduleItem.room ? `Room ${scheduleItem.room}` : '',
+      currentProfile?.role === 'professor' && sectionLabel ? sectionLabel : '',
+    ].filter(Boolean)
+    room.textContent = parts.join(' • ')
+    if (room.textContent) details.append(room)
   }
 
   if (canManageSchedule && scheduleItem.id != null) {
@@ -436,17 +446,20 @@ function refreshSectionOptions() {
   classFields.section.replaceChildren(new Option('Select section', '', true, true))
   classFields.section.options[0].disabled = true
 
-  availableSections
+  const matchingSections = availableSections
     .filter((section) => (
       section.branch === classFields.branch.value &&
       Number(section.semester) === Number(classFields.semester.value)
     ))
-    .forEach((section) => {
-      classFields.section.add(new Option(section.name, section.id))
-    })
+
+  matchingSections.forEach((section) => {
+    classFields.section.add(new Option(section.name, section.id))
+  })
 
   if ([...classFields.section.options].some((option) => option.value === previousSection)) {
     classFields.section.value = previousSection
+  } else if (matchingSections.length === 1) {
+    classFields.section.value = String(matchingSections[0].id)
   }
 }
 
@@ -458,7 +471,6 @@ async function loadUserRole() {
     addClassButton.hidden = !canManageSchedule
 
     if (canManageSchedule) await loadSections()
-    if (!scheduleLoadFailed) displaySchedule(todaySchedule)
     return true
   } catch (error) {
     console.error('Unable to determine timetable permissions:', error)
@@ -466,6 +478,21 @@ async function loadUserRole() {
     addClassButton.hidden = true
     return false
   }
+}
+
+function subscribeToTimetableChanges() {
+  if (!window.supabaseClient) return null
+
+  return window.supabaseClient
+    .channel('schedule-timetable-live')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'timetable' },
+      () => {
+        loadSchedule()
+      },
+    )
+    .subscribe()
 }
 
 addClassButton.addEventListener('click', () => openClassForm())
@@ -487,7 +514,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isAuthenticated = await loadUserRole()
   if (!isAuthenticated) return
 
-  loadSchedule()
+  await loadSchedule()
+  subscribeToTimetableChanges()
 
   setInterval(() => {
     displaySelectedDay()

@@ -1,18 +1,61 @@
 const profileState = document.querySelector('#profileState')
 const profileIdentity = document.querySelector('#profileIdentity')
 const profileName = document.querySelector('#profileName')
+const profileRole = document.querySelector('#profileRole')
+const profileEmail = document.querySelector('#profileEmail')
 const profileDepartment = document.querySelector('#profileDepartment')
 const profileSemester = document.querySelector('#profileSemester')
 const preferencesButton = document.querySelector('#preferencesButton')
 const preferencesMessage = document.querySelector('#preferencesMessage')
 const logoutButton = document.querySelector('#logoutButton')
 
-function displayProfile(profile) {
+function getRoleLabel(role) {
+  switch (String(role || '').toLowerCase()) {
+    case 'professor':
+      return 'Faculty / Professor'
+    case 'class_leader':
+    case 'cr':
+      return 'Class Representative (CR)'
+    case 'student':
+    default:
+      return 'Student'
+  }
+}
+
+async function displayProfile(profile) {
   profileName.textContent = profile.full_name
-  profileDepartment.textContent = profile.branch || 'Department not assigned'
-  profileSemester.textContent = profile.semester == null
-    ? 'Semester not assigned'
-    : `${profile.semester}${getOrdinalSuffix(profile.semester)} Semester`
+  if (profileRole) profileRole.textContent = `Role: ${getRoleLabel(profile.role)}`
+  if (profileEmail) profileEmail.textContent = profile.email || ''
+
+  if (profile.role === 'professor') {
+    profileDepartment.textContent = profile.branch ? `Department: ${profile.branch}` : 'Faculty Member'
+    profileSemester.textContent = ''
+  } else {
+    let sectionName = ''
+    if (profile.section_id && window.supabaseClient) {
+      try {
+        const { data: section } = await window.supabaseClient
+          .from('sections')
+          .select('name, branch, semester')
+          .eq('id', profile.section_id)
+          .maybeSingle()
+        if (section?.name) {
+          sectionName = section.name
+        }
+      } catch (err) {
+        console.warn('Could not resolve section details:', err)
+      }
+    }
+
+    const branchLabel = profile.branch ? `Branch: ${profile.branch}` : 'Branch not assigned'
+    profileDepartment.textContent = sectionName
+      ? `${branchLabel} • Section ${sectionName}`
+      : branchLabel
+
+    profileSemester.textContent = profile.semester == null
+      ? 'Semester not assigned'
+      : `${profile.semester}${getOrdinalSuffix(profile.semester)} Semester`
+  }
 
   profileState.hidden = true
   profileIdentity.hidden = false
@@ -39,7 +82,7 @@ async function loadProfile() {
       throw new Error('The profile response is incomplete.')
     }
 
-    displayProfile(profile)
+    await displayProfile(profile)
   } catch (error) {
     console.error('Unable to load profile:', error)
     profileState.textContent = 'Unable to load profile.'

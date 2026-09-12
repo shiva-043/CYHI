@@ -96,14 +96,20 @@ updateBatchFields()
 function getSignupErrorMessage(error) {
   const message = String(error?.message || '').toLowerCase()
   const errorCode = String(error?.code || '')
+  if (errorCode === 'staff_not_authorized') {
+    return 'This CR or Professor email has not been approved by the project administrator.'
+  }
+  if (errorCode === 'user_already_exists' || message.includes('already registered') || message.includes('already exists')) {
+    return 'An account with this email already exists. Please log in instead.'
+  }
   if (errorCode === '23514' || message.includes('profiles_email_format')) {
     return 'Use your IIITDM Jabalpur email address ending in @iiitdmj.ac.in.'
   }
-  if (message.includes('already registered') || message.includes('already exists')) {
-    return 'An account with this email already exists.'
-  }
   if (message.includes('email') && message.includes('invalid')) {
     return 'Enter a valid email address.'
+  }
+  if (message.includes('rate limit') || message.includes('too many requests')) {
+    return 'Too many signup attempts. Please wait a few minutes and try again.'
   }
   if (message.includes('password')) {
     return 'Choose a stronger password with at least 6 characters.'
@@ -191,6 +197,21 @@ signupForm.addEventListener('submit', async (event) => {
   }
 
   try {
+    if (['cr', 'professor'].includes(roleInput.value)) {
+      const { data: isAuthorized, error: authorizationError } = await window.supabaseClient
+        .rpc('is_staff_signup_authorized', {
+          requested_email: normalizedEmail,
+          requested_role: ROLE_MAP[roleInput.value],
+        })
+
+      if (authorizationError) throw authorizationError
+      if (!isAuthorized) {
+        const authorizationRequired = new Error('Staff signup is not authorized.')
+        authorizationRequired.code = 'staff_not_authorized'
+        throw authorizationRequired
+      }
+    }
+
     const { data, error } = await window.supabaseClient.auth.signUp({
       email: normalizedEmail,
       password: passwordInput.value,
@@ -199,6 +220,11 @@ signupForm.addEventListener('submit', async (event) => {
 
     if (error) throw error
     if (!data.user) throw new Error('Supabase did not return the new user.')
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      const existingAccount = new Error('This email is already registered.')
+      existingAccount.code = 'user_already_exists'
+      throw existingAccount
+    }
 
     signupStatus.classList.add('success-message')
 

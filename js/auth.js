@@ -1,5 +1,5 @@
 // Shared authentication and profile helpers for protected pages.
-const PROFILE_COLUMNS = 'id, full_name, email, role, branch, admission_year, section_id, semester'
+const PROFILE_COLUMNS = 'id, full_name, email, role, branch, admission_year, section_id, semester, roll_no'
 
 async function getSession() {
   const { data, error } = await window.supabaseClient.auth.getSession()
