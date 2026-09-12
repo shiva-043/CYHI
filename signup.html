@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="Create an IIITDM Jabalpur Campus Companion account." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/signup.css" />
+    <title>Sign Up | IIITDM Campus Companion</title>
+  </head>
+  <body class="auth-page signup-page">
+    <main class="auth-layout">
+      <a class="auth-brand" href="index.html" aria-label="Return to the opening page">
+        <span class="auth-brand-mark" aria-hidden="true">I</span>
+        <span class="auth-brand-copy">
+          <strong>IIITDM JABALPUR</strong>
+          <span>Campus Companion</span>
+        </span>
+      </a>
+
+      <section class="auth-card" aria-labelledby="signupHeading">
+        <div class="auth-heading">
+          <span class="auth-accent" aria-hidden="true"></span>
+          <h1 id="signupHeading">Create Account</h1>
+          <p>Create your Campus Companion account</p>
+        </div>
+
+        <form id="signupForm" novalidate>
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Enter your name"
+              autocomplete="name"
+              aria-describedby="nameError"
+            />
+            <p class="field-error" id="nameError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="userIdentity">Username / Email</label>
+            <input
+              id="userIdentity"
+              name="userIdentity"
+              type="text"
+              placeholder="Enter username or email"
+              autocomplete="username"
+              aria-describedby="userIdentityError"
+            />
+            <p class="field-error" id="userIdentityError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" name="role" aria-describedby="roleError">
+              <option value="" selected disabled>Select your role</option>
+              <option value="student">Student</option>
+              <option value="cr">CR</option>
+              <option value="professor">Professor</option>
+            </select>
+            <p class="field-error" id="roleError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="password-field">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                autocomplete="new-password"
+                aria-describedby="passwordError"
+              />
+              <button
+                class="password-toggle"
+                id="passwordToggle"
+                type="button"
+                aria-label="Show password"
+              >
+                <span aria-hidden="true">👁</span>
+              </button>
+            </div>
+            <p class="field-error" id="passwordError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="password-field">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                autocomplete="new-password"
+                aria-describedby="confirmPasswordError"
+              />
+              <button
+                class="password-toggle"
+                id="confirmPasswordToggle"
+                type="button"
+                aria-label="Show confirm password"
+              >
+                <span aria-hidden="true">👁</span>
+              </button>
+            </div>
+            <p class="field-error" id="confirmPasswordError" aria-live="polite"></p>
+          </div>
+
+          <button class="auth-submit" type="submit">Sign Up</button>
+        </form>
+
+        <p class="auth-switch">
+          Already have an account? <a href="login.html">Login</a>
+        </p>
+      </section>
+    </main>
+
+    <script src="js/signup.js" defer></script>
+  </body>
+</html>

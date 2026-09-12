@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta
+      name="description"
+      content="IIITDM Jabalpur Campus Companion — important campus information and updates in one place."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <title>IIITDM Jabalpur Campus Companion</title>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <header class="navbar">
+      <a class="brand" href="#top" aria-label="Campus Companion home">
+        <span class="brand-mark" aria-hidden="true">I</span>
+        <span class="brand-copy">
+          <strong>IIITDM JABALPUR</strong>
+          <span>Campus Companion</span>
+        </span>
+      </a>
+
+      <nav class="nav-actions" aria-label="Account actions">
+        <a class="nav-login" href="login.html">Login</a>
+        <a class="nav-signup" href="signup.html">Sign up</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="hero" id="top">
+        <div class="hero-content fade-in">
+          <h1 class="eyebrow">Welcome to IIITDM Jabalpur</h1>
+          <h2 class="hero-title">Campus Companion</h2>
+          <p class="hero-description">
+            Your single platform for important campus information and updates.
+          </p>
+          <button class="primary-button" id="getStartedButton" type="button">
+            Get started <span aria-hidden="true">↓</span>
+          </button>
+        </div>
+
+        <figure class="campus-photo-wrap fade-in">
+          <img
+            class="campus-photo"
+            src="assets/iiitdm-campus.png"
+            alt="PDPM IIITDM Jabalpur campus building"
+          />
+          <figcaption>PDPM IIITDM Jabalpur</figcaption>
+        </figure>
+      </section>
+
+      <!-- Features: exactly three campus essentials -->
+      <section class="features section-shell" id="features">
+        <div class="section-heading">
+          <h2>Everything you need,<br />in one place</h2>
+        </div>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <span class="feature-icon" aria-hidden="true">📢</span>
+            <h3>Announcements</h3>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon" aria-hidden="true">📅</span>
+            <h3>Schedule</h3>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon" aria-hidden="true">🎉</span>
+            <h3>Events</h3>
+          </div>
+        </div>
+      </section>
+
+      <!-- About -->
+      <section class="about section-shell" id="about">
+        <div class="about-rule" aria-hidden="true"></div>
+        <div class="about-content">
+          <h2 class="section-label">About Campus Companion</h2>
+        </div>
+        <p class="about-copy">
+          College information is often spread across different groups, notices and platforms.
+          Campus Companion makes accessing important campus information simpler, faster and
+          more organized for students.
+        </p>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>IIITDM Jabalpur Campus Companion</p>
+      <span>Built for students, by students.</span>
+    </footer>
+
+    <script src="js/main.js" defer></script>
+  </body>
+</html>
