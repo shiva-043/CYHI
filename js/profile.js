@@ -23,13 +23,14 @@ function getRoleLabel(role) {
 }
 
 async function displayProfile(profile) {
-  profileName.textContent = profile.full_name
+  const displayName = profile.full_name || profile.name || (profile.email ? profile.email.split('@')[0] : 'User')
+  if (profileName) profileName.textContent = displayName
   if (profileRole) profileRole.textContent = `Role: ${getRoleLabel(profile.role)}`
-  if (profileEmail) profileEmail.textContent = profile.email || ''
+  if (profileEmail) profileEmail.textContent = profile.email || profile.authUser?.email || ''
 
   if (profile.role === 'professor') {
-    profileDepartment.textContent = profile.branch ? `Department: ${profile.branch}` : 'Faculty Member'
-    profileSemester.textContent = ''
+    if (profileDepartment) profileDepartment.textContent = profile.branch ? `Department: ${profile.branch}` : 'Faculty Member'
+    if (profileSemester) profileSemester.textContent = ''
   } else {
     let sectionName = ''
     if (profile.section_id && window.supabaseClient) {
@@ -48,67 +49,78 @@ async function displayProfile(profile) {
     }
 
     const branchLabel = profile.branch ? `Branch: ${profile.branch}` : 'Branch not assigned'
-    profileDepartment.textContent = sectionName
-      ? `${branchLabel} • Section ${sectionName}`
-      : branchLabel
+    const batchLabel = profile.batch ? ` • Batch ${profile.batch}` : ''
+    if (profileDepartment) {
+      profileDepartment.textContent = sectionName
+        ? `${branchLabel} • Section ${sectionName}${batchLabel}`
+        : `${branchLabel}${batchLabel}`
+    }
 
-    profileSemester.textContent = profile.semester == null
-      ? 'Semester not assigned'
-      : `${profile.semester}${getOrdinalSuffix(profile.semester)} Semester`
+    if (profileSemester) {
+      const semNum = parseInt(profile.semester, 10)
+      profileSemester.textContent = isNaN(semNum)
+        ? 'Semester not assigned'
+        : `${semNum}${getOrdinalSuffix(semNum)} Semester`
+    }
   }
 
-  profileState.hidden = true
-  profileIdentity.hidden = false
+  if (profileState) profileState.hidden = true
+  if (profileIdentity) profileIdentity.hidden = false
 }
 
 function getOrdinalSuffix(value) {
-  if (value >= 11 && value <= 13) return 'th'
-  if (value % 10 === 1) return 'st'
-  if (value % 10 === 2) return 'nd'
-  if (value % 10 === 3) return 'rd'
+  const num = parseInt(value, 10)
+  if (isNaN(num)) return ''
+  if (num >= 11 && num <= 13) return 'th'
+  if (num % 10 === 1) return 'st'
+  if (num % 10 === 2) return 'nd'
+  if (num % 10 === 3) return 'rd'
   return 'th'
 }
 
 async function loadProfile() {
   try {
     const profile = await window.CampusAuth.getAuthenticatedUser()
-    const hasValidProfile = (
-      profile &&
-      typeof profile.full_name === 'string' &&
-      profile.full_name.trim() !== ''
-    )
-
-    if (!hasValidProfile) {
-      throw new Error('The profile response is incomplete.')
+    if (!profile) {
+      throw new Error('Unable to retrieve profile.')
     }
-
     await displayProfile(profile)
   } catch (error) {
     console.error('Unable to load profile:', error)
-    profileState.textContent = 'Unable to load profile.'
-    profileState.classList.add('error-state')
-    profileIdentity.hidden = true
+    if (profileState) {
+      profileState.textContent = 'Unable to load profile.'
+      profileState.classList.add('error-state')
+    }
+    if (profileIdentity) profileIdentity.hidden = true
   }
 }
 
 async function logout() {
-  logoutButton.disabled = true
+  if (logoutButton) logoutButton.disabled = true
 
   try {
     await window.CampusAuth.signOut()
   } catch (error) {
     console.error('Unable to log out:', error)
-    profileState.hidden = false
-    profileState.textContent = 'Unable to log out. Please try again.'
-    profileState.classList.add('error-state')
-    logoutButton.disabled = false
+    if (profileState) {
+      profileState.hidden = false
+      profileState.textContent = 'Unable to log out. Please try again.'
+      profileState.classList.add('error-state')
+    }
+    if (logoutButton) logoutButton.disabled = false
   }
 }
 
-preferencesButton.addEventListener('click', () => {
-  preferencesMessage.textContent = 'Preferences will be available soon.'
-})
+if (preferencesButton) {
+  preferencesButton.addEventListener('click', () => {
+    if (preferencesMessage) {
+      preferencesMessage.textContent = 'Preferences will be available soon.'
+    }
+  })
+}
 
-logoutButton.addEventListener('click', logout)
+if (logoutButton) {
+  logoutButton.addEventListener('click', logout)
+}
 
 document.addEventListener('DOMContentLoaded', loadProfile)

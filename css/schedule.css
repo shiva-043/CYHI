@@ -77,26 +77,16 @@
 .schedule-heading h1 {
   margin: 0;
   font-family: 'Manrope', sans-serif;
-  font-size: clamp(40px, 7vw, 66px);
+  font-size: clamp(34px, 6vw, 56px);
   letter-spacing: -0.045em;
   line-height: 1;
   text-transform: uppercase;
 }
 
-.add-class-button {
-  min-height: 42px;
-  margin-top: 22px;
-  padding: 0 17px;
-  color: var(--white);
-  background: var(--navy);
-  border: 0;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.add-class-button[hidden] {
-  display: none;
+.schedule-subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .selected-day {
@@ -107,6 +97,147 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   white-space: nowrap;
+}
+
+/* Day Selector Navigation Pills */
+.day-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding: 6px;
+  overflow-x: auto;
+  background: #e9edf3;
+  border-radius: 12px;
+  scrollbar-width: none;
+}
+
+.day-selector::-webkit-scrollbar {
+  display: none;
+}
+
+.day-tab {
+  flex: 1;
+  min-width: 58px;
+  min-height: 42px;
+  padding: 8px 14px;
+  color: var(--navy-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
+
+.day-tab:hover {
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--navy);
+}
+
+.day-tab.active {
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: 0 2px 8px rgba(11, 33, 70, 0.08);
+  font-weight: 800;
+}
+
+/* Timetable Management Section for CRs and Faculty */
+.schedule-management-panel {
+  margin-bottom: 32px;
+  padding: 18px 24px;
+  background: #ffffff;
+  border: 1px solid #dbe2ec;
+  border-left: 4px solid var(--navy);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(11, 33, 70, 0.04);
+}
+
+.schedule-management-panel[hidden] {
+  display: none;
+}
+
+.management-panel-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.management-title {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+.management-subtitle {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.management-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.add-class-button {
+  min-height: 40px;
+  padding: 0 18px;
+  color: var(--white);
+  background: var(--navy);
+  border: 0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.add-class-button:hover {
+  background: #143666;
+  transform: translateY(-1px);
+}
+
+.add-class-button[hidden] {
+  display: none;
+}
+
+.import-pdf-button {
+  min-height: 40px;
+  padding: 0 18px;
+  color: var(--navy);
+  background: #f0f4f9;
+  border: 1px solid #c8d4e4;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.import-pdf-button:hover {
+  background: #e1ebf7;
+  border-color: #9cb6d8;
+  transform: translateY(-1px);
+}
+
+.import-pdf-button[hidden] {
+  display: none;
 }
 
 .schedule-layout {
@@ -378,7 +509,85 @@
 }
 
 .target-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .target-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.class-badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.class-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.badge-class {
+  background: #e6eef9;
+  color: #1a4f8b;
+}
+
+.badge-lab {
+  background: #fdf0d5;
+  color: #8c5300;
+}
+
+.badge-tut {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.badge-batch {
+  background: #f0f2f5;
+  color: #445163;
+  border: 1px solid #d9e0e8;
+}
+
+.badge-current-status {
+  background: #fde8e8;
+  color: #9c1414;
+  border: 1px solid #f8b4b4;
+  animation: pulse-badge 2s infinite ease-in-out;
+}
+
+.badge-next-status {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+.schedule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.schedule-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .class-form-actions {
@@ -517,4 +726,330 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* PDF Timetable Import Dialog */
+.pdf-dialog {
+  width: min(100%, 980px);
+  max-height: calc(100vh - 36px);
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-modal-subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pdf-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* PDF Drag and Drop Area */
+.pdf-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: #f8fafc;
+  border: 2px dashed #b5c7de;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.pdf-dropzone:hover,
+.pdf-dropzone:focus-visible {
+  border-color: var(--navy);
+  background: #f0f5fc;
+}
+
+.pdf-dropzone.dragover {
+  border-color: #0d47a1;
+  background: #e6effd;
+  transform: scale(1.01);
+}
+
+.pdf-dropzone-icon {
+  font-size: 38px;
+  margin-bottom: 8px;
+}
+
+.pdf-dropzone-title {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.pdf-browse-link {
+  color: #1a56db;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pdf-dropzone-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Selected File Bar */
+.pdf-selected-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #eff5fc;
+  border: 1px solid #cfe0f5;
+  border-radius: 9px;
+}
+
+.pdf-file-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-file-size {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.pdf-clear-file-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 0;
+  color: #a23b3b;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pdf-clear-file-btn:hover {
+  background: rgba(162, 59, 59, 0.1);
+}
+
+/* Parse Status & Spinner */
+.pdf-parse-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #fdfaf3;
+  border: 1px solid #f6e3ba;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8b6214;
+}
+
+.pdf-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(139, 98, 20, 0.2);
+  border-top-color: #8b6214;
+  border-radius: 50%;
+  animation: pdf-spin 0.75s linear infinite;
+}
+
+@keyframes pdf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Preview Section & Controls */
+.pdf-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #dce2eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.pdf-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pdf-preview-title {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.pdf-preview-count {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pdf-preview-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pdf-ctrl-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #f2f5f9;
+  border: 1px solid #d3dce8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.pdf-ctrl-btn:hover {
+  background: #e2ebf6;
+  border-color: #b5c7de;
+}
+
+/* Scrollable Preview Table */
+.pdf-table-wrapper {
+  max-height: 330px;
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid #e1e6ed;
+  border-radius: 8px;
+}
+
+.pdf-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.pdf-preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 9px 8px;
+  background: #edf2f7;
+  color: var(--navy);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom: 2px solid #d6dfea;
+  white-space: nowrap;
+}
+
+.pdf-preview-table tbody tr {
+  border-bottom: 1px solid #edf1f7;
+  transition: background 120ms ease;
+}
+
+.pdf-preview-table tbody tr:hover {
+  background: #f7f9fc;
+}
+
+.pdf-preview-table tbody tr.row-unselected {
+  opacity: 0.55;
+  background: #fafafa;
+}
+
+.pdf-preview-table td {
+  padding: 6px 6px;
+  vertical-align: middle;
+}
+
+.pdf-preview-table input[type="text"],
+.pdf-preview-table input[type="time"],
+.pdf-preview-table select {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--navy);
+  background: #ffffff;
+  border: 1px solid #d2dbe6;
+  border-radius: 5px;
+  outline: none;
+}
+
+.pdf-preview-table input[type="text"]:focus,
+.pdf-preview-table input[type="time"]:focus,
+.pdf-preview-table select:focus {
+  border-color: var(--navy-soft);
+  box-shadow: 0 0 0 2px rgba(23, 55, 99, 0.12);
+}
+
+.pdf-preview-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--navy);
+}
+
+.pdf-row-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: #bd4848;
+  font-size: 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pdf-row-remove-btn:hover {
+  background: rgba(189, 72, 72, 0.12);
+}
+
+.pdf-import-message {
+  min-height: 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.pdf-import-message.error {
+  color: #c0392b;
+}
+
+.pdf-import-message.success {
+  color: #1e824c;
+}
+
+.pdf-modal-actions {
+  margin-top: 4px;
+}
+
+.pdf-modal-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }

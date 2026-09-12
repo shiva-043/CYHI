@@ -29,10 +29,36 @@
       <section class="schedule-heading" aria-labelledby="pageHeading">
         <div>
           <h1 id="pageHeading">My Schedule</h1>
-          <button class="add-class-button" id="addClassButton" type="button" hidden>+ Add Class</button>
+          <p class="schedule-subtitle">Official daily timetable & class schedule</p>
         </div>
         <p class="selected-day" id="selectedDay" aria-label="Selected day"></p>
       </section>
+
+      <!-- Day Selector (Monday to Saturday) -->
+      <nav class="day-selector" id="daySelector" aria-label="Select day of week">
+        <button type="button" class="day-tab" data-day="Monday">Mon</button>
+        <button type="button" class="day-tab" data-day="Tuesday">Tue</button>
+        <button type="button" class="day-tab" data-day="Wednesday">Wed</button>
+        <button type="button" class="day-tab" data-day="Thursday">Thu</button>
+        <button type="button" class="day-tab" data-day="Friday">Fri</button>
+        <button type="button" class="day-tab" data-day="Saturday">Sat</button>
+      </nav>
+
+      <!-- Timetable Management Panel (CRs & Professors only) -->
+      <section class="schedule-management-panel" id="scheduleManagementPanel" hidden aria-label="Timetable management">
+        <div class="management-panel-content">
+          <div>
+            <h2 class="management-title">Timetable Management</h2>
+            <p class="management-subtitle" id="managementSubtitle">Manage class schedules for your authorized section</p>
+          </div>
+          <div class="management-actions">
+            <button class="add-class-button" id="addClassButton" type="button">+ Add Single Class</button>
+            <button class="import-pdf-button" id="importPdfButton" type="button">📄 Import Timetable (PDF / Excel)</button>
+          </div>
+        </div>
+      </section>
+
+      <p class="schedule-management-status" id="scheduleManagementStatus" aria-live="polite"></p>
 
       <div class="schedule-layout">
         <section class="daily-schedule" aria-label="Daily timetable">
@@ -49,62 +75,19 @@
           <p class="navigation-message" id="navigationMessage" aria-live="polite"></p>
         </section>
       </div>
-      <p class="schedule-management-status" id="scheduleManagementStatus" aria-live="polite"></p>
     </main>
 
     <div class="schedule-modal" id="classModal" hidden>
       <section class="class-dialog" role="dialog" aria-modal="true" aria-labelledby="classFormTitle">
         <div class="class-dialog-heading">
-          <h2 id="classFormTitle">Add Class</h2>
+          <h2 id="classFormTitle">Add Timetable Entry</h2>
           <button class="class-dialog-close" id="closeClassForm" type="button" aria-label="Close">×</button>
         </div>
 
         <form id="classForm">
           <input id="classId" type="hidden" />
 
-          <div class="class-field">
-            <label for="classSubject">Subject</label>
-            <input id="classSubject" type="text" required />
-          </div>
-          <div class="class-field">
-            <label for="classRoom">Room</label>
-            <input id="classRoom" type="text" />
-          </div>
-
-          <div class="class-field-row">
-            <div class="class-field">
-              <label for="classDay">Day</label>
-              <select id="classDay" required>
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday">Thursday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
-                <option value="Sunday">Sunday</option>
-              </select>
-            </div>
-            <div class="class-field">
-              <label for="classType">Type</label>
-              <select id="classType" required>
-                <option value="class">class</option>
-                <option value="break">break</option>
-                <option value="free">free</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="class-field-row">
-            <div class="class-field">
-              <label for="classStartTime">Start Time</label>
-              <input id="classStartTime" type="time" required />
-            </div>
-            <div class="class-field">
-              <label for="classEndTime">End Time</label>
-              <input id="classEndTime" type="time" required />
-            </div>
-          </div>
-
+          <!-- Target Department, Semester, Section, and Batch -->
           <div class="class-field-row target-row">
             <div class="class-field">
               <label for="classBranch">Branch</label>
@@ -127,6 +110,85 @@
                 <option value="" selected disabled>Select section</option>
               </select>
             </div>
+            <div class="class-field">
+              <label for="classBatch">Batch</label>
+              <select id="classBatch">
+                <option value="">All / Whole Section</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="B1">B1</option>
+                <option value="B2">B2</option>
+                <option value="C1">C1</option>
+                <option value="C2">C2</option>
+                <option value="D1">D1</option>
+                <option value="D2">D2</option>
+                <option value="E1">E1</option>
+                <option value="E2">E2</option>
+                <option value="Batch A">Batch A</option>
+                <option value="Batch B">Batch B</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Course Code and Course Name -->
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classCourseCode">Course Code</label>
+              <input id="classCourseCode" type="text" placeholder="e.g. CS2003" required />
+            </div>
+            <div class="class-field">
+              <label for="classCourseName">Course Name</label>
+              <input id="classCourseName" type="text" placeholder="e.g. Data Structures" />
+            </div>
+          </div>
+
+          <!-- Faculty and Room -->
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classFaculty">Faculty Name</label>
+              <input id="classFaculty" type="text" placeholder="e.g. Dr. Pritee Khanna" />
+            </div>
+            <div class="class-field">
+              <label for="classRoom">Room / Venue</label>
+              <input id="classRoom" type="text" placeholder="e.g. L104, CC-3F" />
+            </div>
+          </div>
+
+          <!-- Day of Week and Type -->
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classDay">Day</label>
+              <select id="classDay" required>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+              </select>
+            </div>
+            <div class="class-field">
+              <label for="classType">Type</label>
+              <select id="classType" required>
+                <option value="class">Lecture (Class)</option>
+                <option value="lab">Lab (Practical)</option>
+                <option value="tut">Tutorial</option>
+                <option value="break">Break</option>
+                <option value="free">Free Slot</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Start and End Time -->
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classStartTime">Start Time</label>
+              <input id="classStartTime" type="time" required />
+            </div>
+            <div class="class-field">
+              <label for="classEndTime">End Time</label>
+              <input id="classEndTime" type="time" required />
+            </div>
           </div>
 
           <div class="class-form-actions">
@@ -137,9 +199,123 @@
       </section>
     </div>
 
+    <!-- Timetable Import Modal (PDF & Excel) -->
+    <div class="schedule-modal" id="pdfImportModal" hidden>
+      <section class="class-dialog pdf-dialog" role="dialog" aria-modal="true" aria-labelledby="pdfModalTitle">
+        <div class="class-dialog-heading">
+          <div>
+            <h2 id="pdfModalTitle">Import Timetable (PDF / Excel)</h2>
+            <p class="pdf-modal-subtitle">Upload official IIITDM timetable PDF or Excel spreadsheet (.xlsx, .xls, .csv) to extract classes</p>
+          </div>
+          <button class="class-dialog-close" id="closePdfModal" type="button" aria-label="Close">×</button>
+        </div>
+
+        <div class="pdf-import-body">
+          <!-- Target Selection Row -->
+          <div class="class-field-row target-row" id="pdfTargetRow">
+            <div class="class-field">
+              <label for="pdfBranch">Target Branch</label>
+              <select id="pdfBranch" required>
+                <option value="" selected disabled>Select branch</option>
+              </select>
+            </div>
+            <div class="class-field">
+              <label for="pdfSemester">Target Semester</label>
+              <select id="pdfSemester" required>
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option>
+              </select>
+            </div>
+            <div class="class-field">
+              <label for="pdfSection">Target Section</label>
+              <select id="pdfSection" required>
+                <option value="" selected disabled>Select section</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- File Upload Dropzone -->
+          <div class="pdf-dropzone" id="pdfDropzone" role="button" tabindex="0" aria-label="Upload PDF or Excel timetable">
+            <input type="file" id="pdfFileInput" accept=".pdf,application/pdf,.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
+            <div class="pdf-dropzone-icon" id="pdfDropzoneIcon" aria-hidden="true">📄 📊</div>
+            <p class="pdf-dropzone-title">
+              Drag &amp; drop your timetable PDF or Excel sheet here, or
+              <span class="pdf-browse-link">browse file</span>
+            </p>
+            <p class="pdf-dropzone-hint">Supports official IIITDM timetable (PDF or Excel .xlsx) and departmental schedules (max 15MB)</p>
+          </div>
+
+          <!-- Selected File Bar -->
+          <div class="pdf-selected-bar" id="pdfSelectedBar" hidden>
+            <div class="pdf-file-details">
+              <span class="pdf-file-icon">📎</span>
+              <span class="pdf-file-name" id="pdfFileName">filename.pdf</span>
+              <span class="pdf-file-size" id="pdfFileSize">(0 KB)</span>
+            </div>
+            <button type="button" class="pdf-clear-file-btn" id="pdfClearFileBtn" title="Remove file">✕</button>
+          </div>
+
+          <!-- Parsing Progress / Status -->
+          <div class="pdf-parse-status" id="pdfParseStatus" hidden>
+            <div class="pdf-spinner" aria-hidden="true"></div>
+            <span id="pdfParseStatusText">Analyzing PDF document...</span>
+          </div>
+
+          <!-- Preview Section -->
+          <div class="pdf-preview-section" id="pdfPreviewSection" hidden>
+            <div class="pdf-preview-header">
+              <div>
+                <h3 class="pdf-preview-title">Extracted Classes Preview</h3>
+                <p class="pdf-preview-count" id="pdfPreviewCount">0 classes found</p>
+              </div>
+              <div class="pdf-preview-controls">
+                <button type="button" class="pdf-ctrl-btn" id="pdfSelectAllBtn">Select All</button>
+                <button type="button" class="pdf-ctrl-btn" id="pdfDeselectAllBtn">Deselect All</button>
+                <button type="button" class="pdf-ctrl-btn" id="pdfAddPreviewRowBtn">+ Add Row</button>
+              </div>
+            </div>
+
+            <div class="pdf-table-wrapper">
+              <table class="pdf-preview-table" id="pdfPreviewTable">
+                <thead>
+                  <tr>
+                    <th style="width: 38px; text-align: center;">
+                      <input type="checkbox" id="pdfMasterCheckbox" checked aria-label="Select all classes" />
+                    </th>
+                    <th style="min-width: 100px;">Day</th>
+                    <th style="min-width: 85px;">Start</th>
+                    <th style="min-width: 85px;">End</th>
+                    <th style="min-width: 95px;">Code</th>
+                    <th style="min-width: 130px;">Name</th>
+                    <th style="min-width: 90px;">Type</th>
+                    <th style="min-width: 85px;">Faculty</th>
+                    <th style="min-width: 80px;">Room</th>
+                    <th style="min-width: 75px;">Batch</th>
+                    <th style="width: 36px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="pdfPreviewTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="pdf-import-message" id="pdfImportMessage" aria-live="polite"></p>
+
+          <div class="class-form-actions pdf-modal-actions">
+            <button class="class-save-button" id="pdfImportButton" type="button" disabled>Import Classes</button>
+            <button class="class-cancel-button" id="cancelPdfModal" type="button">Cancel</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <footer class="schedule-footer">IIITDM Jabalpur Campus Companion</footer>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script src="js/supabase.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/schedule.js" defer></script>

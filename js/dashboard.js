@@ -57,41 +57,63 @@ function formatClassTime(date) {
 function displayNextClass(timetable) {
   const now = new Date()
 
-  const upcomingClasses = timetable
+  const validClasses = timetable
     .map((classItem) => ({
       ...classItem,
       startDate: new Date(classItem.startTime),
+      endDate: new Date(classItem.endTime),
     }))
-    .filter((classItem) => classItem.type === 'class')
-    .filter((classItem) => !Number.isNaN(classItem.startDate.getTime()))
-    .filter((classItem) => classItem.startDate > now)
-    .sort((firstClass, secondClass) => firstClass.startDate - secondClass.startDate)
+    .filter((classItem) => ['class', 'lab', 'tut'].includes(classItem.type))
+    .filter((classItem) => !Number.isNaN(classItem.startDate.getTime()) && !Number.isNaN(classItem.endDate.getTime()))
+    .sort((a, b) => a.startDate - b.startDate)
 
   nextClassContent.replaceChildren()
 
-  if (upcomingClasses.length === 0) {
+  // 1. Check if a class is happening right now
+  const currentClass = validClasses.find((c) => now >= c.startDate && now < c.endDate)
+  // 2. Otherwise check next upcoming class today
+  const upcomingClass = validClasses.find((c) => c.startDate > now)
+
+  const targetClass = currentClass || upcomingClass
+
+  if (!targetClass) {
     const message = document.createElement('p')
     message.className = 'state-message'
-    message.textContent = 'No more classes today.'
+    message.textContent = 'No more classes today! Enjoy your evening.'
     nextClassContent.append(message)
     return
   }
 
-  const nextClass = upcomingClasses[0]
-  const minutesRemaining = Math.ceil((nextClass.startDate - now) / 60000)
+  const isHappeningNow = Boolean(currentClass)
+
+  // Status Badge / Countdown
+  const statusBadge = document.createElement('span')
+  statusBadge.className = 'class-badge ' + (isHappeningNow ? 'badge-current-status' : 'badge-next-status')
+  statusBadge.style.cssText = 'display: inline-block; margin-bottom: 10px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase;'
+  if (isHappeningNow) {
+    statusBadge.textContent = '● Happening Now'
+    statusBadge.style.background = '#fde8e8'
+    statusBadge.style.color = '#9c1414'
+  } else {
+    const minutesRemaining = Math.max(1, Math.ceil((targetClass.startDate - now) / 60000))
+    statusBadge.textContent = `Starts in ${minutesRemaining} ${minutesRemaining === 1 ? 'minute' : 'minutes'}`
+    statusBadge.style.background = '#e0f2fe'
+    statusBadge.style.color = '#0369a1'
+  }
 
   const subject = document.createElement('h3')
-  subject.textContent = nextClass.subject || 'Class'
+  const code = targetClass.course_code || targetClass.subject || 'Class'
+  const name = targetClass.course_name && targetClass.course_name !== code ? ` • ${targetClass.course_name}` : ''
+  subject.textContent = `${code}${name}`
 
   const details = document.createElement('p')
   details.className = 'class-details'
-  details.textContent = `${formatClassTime(nextClass.startDate)} • Room ${nextClass.room || 'TBA'}`
+  const timeStr = `${formatClassTime(targetClass.startDate)} – ${formatClassTime(targetClass.endDate)}`
+  const roomStr = targetClass.room ? `Room ${targetClass.room}` : 'Venue TBA'
+  const facultyStr = targetClass.faculty ? ` • ${targetClass.faculty}` : ''
+  details.textContent = `${timeStr} • ${roomStr}${facultyStr}`
 
-  const countdown = document.createElement('p')
-  countdown.className = 'class-countdown'
-  countdown.textContent = `Starts in ${minutesRemaining} ${minutesRemaining === 1 ? 'minute' : 'minutes'}`
-
-  nextClassContent.append(subject, details, countdown)
+  nextClassContent.append(statusBadge, subject, details)
 }
 
 async function getTimetable() {
@@ -103,13 +125,32 @@ async function getTimetable() {
       .eq('day_of_week', weekday)
       .order('start_time')
 
-    if (loggedInProfile?.section_id != null) {
+    if (loggedInProfile?.role === 'professor') {
+      const { data: assignments } = await window.supabaseClient
+        .from('section_professors')
+        .select('section_id')
+        .eq('professor_id', loggedInProfile.id)
+      if (assignments && assignments.length > 0) {
+        query = query.in('section_id', assignments.map((a) => a.section_id))
+      }
+    } else if (loggedInProfile?.section_id != null) {
       query = query.eq('section_id', loggedInProfile.section_id)
     }
+
     const { data, error } = await query
     if (error) throw error
 
-    const timetable = data.map((item) => ({
+    let list = data || []
+    if (loggedInProfile?.batch && loggedInProfile?.role !== 'professor') {
+      const userBatch = loggedInProfile.batch.trim().toUpperCase()
+      list = list.filter((item) => {
+        if (!item.batch) return true
+        const itemBatch = item.batch.trim().toUpperCase()
+        return itemBatch === 'ALL' || itemBatch === userBatch
+      })
+    }
+
+    const timetable = list.map((item) => ({
       ...item,
       startTime: combineTodayWithTime(item.start_time),
       endTime: combineTodayWithTime(item.end_time),
