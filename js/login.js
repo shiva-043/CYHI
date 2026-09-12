@@ -49,6 +49,9 @@ loginForm.addEventListener('submit', (event) => {
     : showError(passwordInput, 'Password cannot be empty.')
 
   if (usernameIsValid && passwordIsValid) {
-    // A backend request can be added here later.
+    // This opens the dashboard after the current frontend validation.
+    // When the backend is connected, move this redirect after a successful
+    // login response so the server still decides whether the login is valid.
+    window.location.href = 'dashboard.html'
   }
 })

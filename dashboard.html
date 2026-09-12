@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="IIITDM Jabalpur Campus Companion dashboard." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <title>Dashboard | Campus Companion</title>
+  </head>
+  <body class="dashboard-page">
+    <header class="dashboard-header">
+      <a class="dashboard-brand" href="index.html">Campus Companion</a>
+
+      <nav class="dashboard-actions" aria-label="Dashboard actions">
+        <a id="notificationButton" href="announcements.html" aria-label="Announcements">🔔</a>
+        <a href="profile.html" aria-label="Profile">👤</a>
+      </nav>
+    </header>
+
+    <main class="dashboard-main">
+      <section class="welcome-section" aria-labelledby="greeting">
+        <h1 id="greeting">
+          <span id="greetingText">Welcome</span>,
+          <span id="userName">loading...</span> 👋
+        </h1>
+        <p>Here's what matters today.</p>
+      </section>
+
+      <nav class="dashboard-navigation" aria-label="Campus Companion pages">
+        <a class="navigation-card" href="announcements.html">
+          <span class="navigation-icon" aria-hidden="true">📢</span>
+          <span>
+            <strong>Announcements</strong>
+            <small>Read campus and academic updates</small>
+          </span>
+          <span class="navigation-arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="navigation-card" href="schedule.html">
+          <span class="navigation-icon" aria-hidden="true">📅</span>
+          <span>
+            <strong>My Schedule</strong>
+            <small>View today's timetable and next class</small>
+          </span>
+          <span class="navigation-arrow" aria-hidden="true">→</span>
+        </a>
+
+        <a class="navigation-card" href="profile.html">
+          <span class="navigation-icon" aria-hidden="true">👤</span>
+          <span>
+            <strong>Profile</strong>
+            <small>View your details and preferences</small>
+          </span>
+          <span class="navigation-arrow" aria-hidden="true">→</span>
+        </a>
+      </nav>
+
+      <div class="dashboard-grid">
+        <section class="dashboard-section next-class-section" aria-labelledby="nextClassHeading">
+          <h2 id="nextClassHeading"><span aria-hidden="true">📅</span> Your Next Class</h2>
+          <div class="next-class-card" id="nextClassContent" aria-live="polite">
+            <p class="state-message">Loading timetable...</p>
+          </div>
+        </section>
+
+        <section class="dashboard-section important-section" aria-labelledby="importantHeading">
+          <h2 id="importantHeading"><span aria-hidden="true">🔴</span> Important</h2>
+          <div class="item-list" id="importantContent" aria-live="polite">
+            <p class="state-message">Loading important updates...</p>
+          </div>
+        </section>
+
+        <section class="dashboard-section upcoming-section" aria-labelledby="upcomingHeading">
+          <h2 id="upcomingHeading"><span aria-hidden="true">🎉</span> Upcoming</h2>
+          <div class="item-list" id="eventsContent" aria-live="polite">
+            <p class="state-message">Loading upcoming events...</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="dashboard-footer">IIITDM Jabalpur Campus Companion</footer>
+
+    <script src="js/auth.js" defer></script>
+    <script src="js/dashboard.js" defer></script>
+  </body>
+</html>

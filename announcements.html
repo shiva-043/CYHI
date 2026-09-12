@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="Important IIITDM Jabalpur campus announcements." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/announcements.css" />
+    <title>Announcements | Campus Companion</title>
+  </head>
+  <body class="announcements-page">
+    <header class="announcements-header">
+      <a class="announcements-brand" href="dashboard.html">Campus Companion</a>
+
+      <nav class="announcements-actions" aria-label="Page actions">
+        <a id="notificationButton" href="announcements.html" aria-label="Announcements">🔔</a>
+        <a href="profile.html" aria-label="Profile">👤</a>
+      </nav>
+    </header>
+
+    <main class="announcements-main">
+      <section class="announcements-title" aria-labelledby="pageHeading">
+        <h1 id="pageHeading">Announcements</h1>
+        <button class="add-content-button" id="addAnnouncementButton" type="button" hidden>
+          + Add Announcement
+        </button>
+      </section>
+
+      <section class="filter-section" aria-label="Filter announcements">
+        <div class="filter-buttons" id="filterButtons">
+          <button class="filter-button active" type="button" data-filter="All" aria-pressed="true">
+            All
+          </button>
+          <button class="filter-button" type="button" data-filter="Academic" aria-pressed="false">
+            Academic
+          </button>
+          <button class="filter-button" type="button" data-filter="Events" aria-pressed="false">
+            Events
+          </button>
+          <button class="filter-button" type="button" data-filter="Urgent" aria-pressed="false">
+            Urgent
+          </button>
+        </div>
+      </section>
+
+      <section class="announcements-list" id="announcementsList" aria-live="polite">
+        <p class="announcement-state">Loading announcements...</p>
+      </section>
+
+      <p class="reminder-page-status" id="reminderPageStatus" aria-live="polite"></p>
+      <p class="management-status" id="announcementManagementStatus" aria-live="polite"></p>
+    </main>
+
+    <div class="management-modal" id="announcementModal" hidden>
+      <section class="management-dialog" role="dialog" aria-modal="true" aria-labelledby="announcementFormTitle">
+        <div class="dialog-heading">
+          <h2 id="announcementFormTitle">Add Announcement</h2>
+          <button class="dialog-close" id="closeAnnouncementForm" type="button" aria-label="Close">×</button>
+        </div>
+
+        <form id="announcementForm">
+          <input id="announcementId" type="hidden" />
+
+          <div class="management-field">
+            <label for="announcementTitle">Title</label>
+            <input id="announcementTitle" type="text" required />
+          </div>
+          <div class="management-field">
+            <label for="announcementDescription">Description</label>
+            <textarea id="announcementDescription" rows="4" required></textarea>
+          </div>
+          <div class="management-field">
+            <label for="announcementCategory">Category</label>
+            <select id="announcementCategory" required>
+              <option value="" selected disabled>Select category</option>
+              <option value="Academic">Academic</option>
+              <option value="Events">Events</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+
+          <div class="management-row">
+            <div class="management-field">
+              <label for="announcementSemester">Target Semester</label>
+              <select id="announcementSemester" required>
+                <option value="ALL">All semesters</option>
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option>
+              </select>
+            </div>
+            <div class="management-field">
+              <label for="announcementBranch">Target Branch</label>
+              <select id="announcementBranch" class="branch-select" required>
+                <option value="ALL">All branches</option>
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="ME">ME</option>
+              </select>
+            </div>
+            <div class="management-field">
+              <label for="announcementSection">Target Section</label>
+              <select id="announcementSection" required>
+                <option value="ALL">ALL</option>
+                <option value="A">A</option><option value="B">B</option>
+                <option value="C">C</option><option value="D">D</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="management-field">
+            <label for="announcementDeadline">Optional Deadline</label>
+            <input id="announcementDeadline" type="datetime-local" />
+          </div>
+          <div class="management-field">
+            <label for="announcementButtonText">Button Text</label>
+            <input id="announcementButtonText" type="text" />
+          </div>
+          <div class="management-field">
+            <label for="announcementActionUrl">Optional Action URL</label>
+            <input id="announcementActionUrl" type="url" placeholder="https://example.com" />
+          </div>
+
+          <div class="management-form-actions">
+            <button class="save-button" type="submit">Save</button>
+            <button class="cancel-button" id="cancelAnnouncementForm" type="button">Cancel</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <footer class="announcements-footer">IIITDM Jabalpur Campus Companion</footer>
+
+    <script src="js/auth.js" defer></script>
+    <script src="js/announcements.js" defer></script>
+  </body>
+</html>

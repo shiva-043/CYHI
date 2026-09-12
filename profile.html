@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="Your IIITDM Jabalpur Campus Companion profile." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/profile.css" />
+    <title>Profile | Campus Companion</title>
+  </head>
+  <body class="profile-page">
+    <header class="profile-header">
+      <a class="profile-brand" href="dashboard.html">Campus Companion</a>
+
+      <nav class="profile-header-actions" aria-label="Page actions">
+        <a href="announcements.html" aria-label="Announcements">🔔</a>
+        <a class="current-page" href="profile.html" aria-label="Profile" aria-current="page">👤</a>
+      </nav>
+    </header>
+
+    <main class="profile-main">
+      <section class="profile-section" aria-labelledby="pageHeading">
+        <h1 id="pageHeading">Profile</h1>
+
+        <p class="profile-state" id="profileState" aria-live="polite">Loading profile...</p>
+
+        <div class="profile-content" id="profileContent">
+          <div class="profile-identity" id="profileIdentity" hidden>
+            <span class="profile-avatar" aria-hidden="true">👤</span>
+            <div>
+              <h2 id="profileName"></h2>
+              <p id="profileDepartment"></p>
+              <p id="profileSemester"></p>
+            </div>
+          </div>
+
+          <div class="profile-divider" aria-hidden="true"></div>
+
+          <nav class="profile-options" aria-label="Profile options">
+            <a href="schedule.html">
+              <span>My Schedule</span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a href="announcements.html">
+              <span>Notifications</span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <button id="preferencesButton" type="button">
+              <span>Preferences</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </nav>
+
+          <p class="preferences-message" id="preferencesMessage" aria-live="polite"></p>
+
+          <div class="profile-divider" aria-hidden="true"></div>
+
+          <button class="logout-button" id="logoutButton" type="button">Logout</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="profile-footer">IIITDM Jabalpur Campus Companion</footer>
+
+    <script src="js/profile.js" defer></script>
+  </body>
+</html>
