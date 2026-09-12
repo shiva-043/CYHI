@@ -192,10 +192,8 @@ as $$
   end
 $$;
 
--- Verify an announcement target against the caller's real database
--- assignments. ALL is allowed only when the caller manages every section in
--- that semester and branch, preventing a one-section CR or professor from
--- targeting unrelated sections.
+-- Verify an announcement target against the caller's permissions.
+-- ALL semesters and/or ALL branches are allowed for professors and class leaders.
 create or replace function public.can_manage_announcement_target(
   announcement_semester integer,
   announcement_branch text,
@@ -208,34 +206,41 @@ security definer
 set search_path to ''
 as $$
   select case
-    when announcement_semester not between 1 and 8 then false
-    when nullif(btrim(announcement_branch), '') is null then false
-    when upper(coalesce(announcement_section, 'ALL')) = 'ALL' then
-      exists (
-        select 1
-        from public.sections section_record
-        where section_record.semester = announcement_semester
-          and section_record.branch = upper(announcement_branch)
-      )
-      and not exists (
-        select 1
-        from public.sections section_record
-        where section_record.semester = announcement_semester
-          and section_record.branch = upper(announcement_branch)
-          and not public.can_manage_section(section_record.id)
-      )
-    else exists (
-      select 1
-      from public.sections section_record
-      where section_record.semester = announcement_semester
-        and section_record.branch = upper(announcement_branch)
-        and section_record.name = upper(announcement_section)
-        and public.can_manage_section(section_record.id)
+    -- Professors can manage announcements
+    when public.get_current_user_role() = 'professor' then true
+
+    -- Class Leaders (CRs)
+    when public.get_current_user_role() = 'class_leader' then (
+      case
+        -- ALL semesters: allowed for CRs
+        when announcement_semester is null or announcement_semester = 0 then true
+        -- Specific semester: allowed if it matches their semester and branch
+        when announcement_semester between 1 and 8 then
+          exists (
+            select 1
+            from public.profiles profile
+            left join public.sections section_record
+              on section_record.id = profile.section_id
+            where profile.id = auth.uid()
+              and profile.role = 'class_leader'
+              and (
+                announcement_branch is null
+                or upper(btrim(announcement_branch)) = 'ALL'
+                or upper(coalesce(section_record.branch, profile.branch, '')) = upper(btrim(announcement_branch))
+              )
+              and (
+                coalesce(section_record.semester, profile.semester) = announcement_semester
+                or profile.semester is null
+              )
+          )
+        else false
+      end
     )
-  end
+    else false
+  end;
 $$;
 
--- Users see only announcements relevant to their own/assigned sections.
+-- Users see announcements relevant to their own/assigned sections or general ALL announcements.
 create or replace function public.can_view_announcement(
   announcement_semester integer,
   announcement_branch text,
@@ -250,30 +255,67 @@ as $$
   select exists (
     select 1
     from public.profiles profile
-    join public.sections section_record
+    left join public.sections section_record
       on section_record.id = profile.section_id
     where profile.id = auth.uid()
-      and profile.role in ('student', 'class_leader')
-      and section_record.semester = announcement_semester
-      and section_record.branch = upper(announcement_branch)
       and (
-        upper(coalesce(announcement_section, 'ALL')) = 'ALL'
-        or section_record.name = upper(announcement_section)
+        -- Case 1: Student or Class Leader (CR)
+        (
+          profile.role in ('student', 'class_leader')
+          and (
+            announcement_semester is null
+            or announcement_semester = 0
+            or coalesce(section_record.semester, profile.semester) = announcement_semester
+          )
+          and (
+            announcement_branch is null
+            or upper(btrim(announcement_branch)) = 'ALL'
+            or upper(coalesce(section_record.branch, profile.branch, '')) = upper(btrim(announcement_branch))
+          )
+          and (
+            announcement_section is null
+            or upper(btrim(announcement_section)) = 'ALL'
+            or upper(coalesce(section_record.name, '')) = upper(btrim(announcement_section))
+          )
+        )
+        -- Case 2: Professor
+        or (
+          profile.role = 'professor'
+          and (
+            (
+              (announcement_semester is null or announcement_semester = 0)
+              and (announcement_branch is null or upper(btrim(announcement_branch)) = 'ALL')
+            )
+            or (
+              (announcement_semester is null or announcement_semester = 0)
+              and upper(coalesce(profile.branch, '')) = upper(btrim(announcement_branch))
+            )
+            or exists (
+              select 1
+              from public.section_professors assignment
+              join public.sections prof_section
+                on prof_section.id = assignment.section_id
+              where assignment.professor_id = auth.uid()
+                and (
+                  announcement_semester is null
+                  or announcement_semester = 0
+                  or prof_section.semester = announcement_semester
+                )
+                and (
+                  announcement_branch is null
+                  or upper(btrim(announcement_branch)) = 'ALL'
+                  or upper(prof_section.branch) = upper(btrim(announcement_branch))
+                )
+                and (
+                  announcement_section is null
+                  or upper(btrim(announcement_section)) = 'ALL'
+                  or upper(prof_section.name) = upper(btrim(announcement_section))
+                )
+            )
+          )
+        )
       )
-  )
-  or exists (
-    select 1
-    from public.section_professors assignment
-    join public.sections section_record
-      on section_record.id = assignment.section_id
-    where assignment.professor_id = auth.uid()
-      and section_record.semester = announcement_semester
-      and section_record.branch = upper(announcement_branch)
-      and (
-        upper(coalesce(announcement_section, 'ALL')) = 'ALL'
-        or section_record.name = upper(announcement_section)
-      )
-  )
+  );
 $$;
 
 -- Students and class leaders see their own section. Professors see assigned
@@ -344,7 +386,8 @@ create policy announcements_select_targeted
 on public.announcements for select
 to authenticated
 using (
-  public.can_view_announcement(
+  created_by = auth.uid()
+  or public.can_view_announcement(
     target_semester,
     target_branch,
     target_section
@@ -367,7 +410,8 @@ create policy announcements_update_scoped
 on public.announcements for update
 to authenticated
 using (
-  public.can_manage_announcement_target(
+  created_by = auth.uid()
+  or public.can_manage_announcement_target(
     target_semester,
     target_branch,
     target_section
@@ -385,7 +429,8 @@ create policy announcements_delete_scoped
 on public.announcements for delete
 to authenticated
 using (
-  public.can_manage_announcement_target(
+  created_by = auth.uid()
+  or public.can_manage_announcement_target(
     target_semester,
     target_branch,
     target_section

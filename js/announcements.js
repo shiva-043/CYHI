@@ -128,16 +128,24 @@ function openAnnouncementForm(announcement = null) {
     announcementFields.title.value = announcement.title || ''
     announcementFields.description.value = announcement.description || ''
     announcementFields.category.value = announcement.category || ''
-    announcementFields.semester.value = String(
-      getAnnouncementValue(announcement, 'targetSemester', 'target_semester') || '',
-    )
-    announcementFields.branch.value = String(
-      getAnnouncementValue(announcement, 'targetBranch', 'target_branch') || '',
-    )
+
+    const targetSem = getAnnouncementValue(announcement, 'targetSemester', 'target_semester')
+    announcementFields.semester.value = (!targetSem || targetSem === 'ALL' || targetSem === 0)
+      ? 'ALL'
+      : String(targetSem)
+
+    const targetBranch = getAnnouncementValue(announcement, 'targetBranch', 'target_branch')
+    announcementFields.branch.value = (!targetBranch || targetBranch === 'ALL')
+      ? 'ALL'
+      : String(targetBranch)
+
     refreshAnnouncementSections()
-    announcementFields.section.value = String(
-      getAnnouncementValue(announcement, 'targetSection', 'target_section') || 'ALL',
-    )
+
+    const targetSec = getAnnouncementValue(announcement, 'targetSection', 'target_section')
+    announcementFields.section.value = (!targetSec || targetSec === 'ALL')
+      ? 'ALL'
+      : String(targetSec)
+
     announcementFields.deadline.value = toDateTimeLocal(announcement.deadline)
     announcementFields.buttonText.value = getAnnouncementValue(
       announcement,
@@ -149,6 +157,11 @@ function openAnnouncementForm(announcement = null) {
       'actionUrl',
       'action_url',
     )
+  } else {
+    announcementFields.semester.value = 'ALL'
+    announcementFields.branch.value = 'ALL'
+    refreshAnnouncementSections()
+    announcementFields.section.value = 'ALL'
   }
 
   announcementModal.hidden = false
@@ -162,16 +175,20 @@ function closeAnnouncementForm() {
 }
 
 function getAnnouncementPayload() {
+  const semValue = announcementFields.semester.value
+  const branchValue = announcementFields.branch.value
+  const sectionValue = announcementFields.section.value
+
   return {
     title: announcementFields.title.value.trim(),
     description: announcementFields.description.value.trim(),
     category: announcementFields.category.value,
-    target_semester: Number(announcementFields.semester.value),
-    target_branch: announcementFields.branch.value,
-    target_section: announcementFields.section.value,
+    target_semester: (!semValue || semValue === 'ALL') ? null : Number(semValue),
+    target_branch: (!branchValue || branchValue === 'ALL') ? 'ALL' : branchValue,
+    target_section: (!sectionValue || sectionValue === 'ALL') ? 'ALL' : sectionValue,
     deadline: announcementFields.deadline.value || null,
-    button_text: announcementFields.buttonText.value.trim(),
-    action_url: announcementFields.actionUrl.value.trim(),
+    button_text: announcementFields.buttonText.value.trim() || null,
+    action_url: announcementFields.actionUrl.value.trim() || null,
   }
 }
 
@@ -231,6 +248,29 @@ async function deleteAnnouncement(announcement) {
   }
 }
 
+function formatAnnouncementTarget(announcement) {
+  if (announcement.target) return announcement.target
+
+  const sem = announcement.target_semester ?? announcement.targetSemester
+  const branch = announcement.target_branch ?? announcement.targetBranch
+  const sec = announcement.target_section ?? announcement.targetSection
+
+  const isAllSem = !sem || sem === 0 || String(sem).toUpperCase() === 'ALL'
+  const isAllBranch = !branch || String(branch).toUpperCase() === 'ALL'
+  const isAllSec = !sec || String(sec).toUpperCase() === 'ALL'
+
+  if (isAllSem && isAllBranch) {
+    return 'All Students & CRs'
+  }
+  if (isAllSem) {
+    return `All Semesters • ${branch}${isAllSec ? '' : ` (${sec})`}`
+  }
+  if (isAllBranch) {
+    return `Semester ${sem} • All Branches`
+  }
+  return `Semester ${sem} • ${branch}${isAllSec ? '' : ` (${sec})`}`
+}
+
 function createAnnouncementCard(announcement) {
   const card = document.createElement('article')
   card.className = 'announcement-card'
@@ -251,10 +291,11 @@ function createAnnouncementCard(announcement) {
   description.textContent = announcement.description || ''
   card.append(category, title, divider, description)
 
-  if (announcement.target) {
+  const targetText = formatAnnouncementTarget(announcement)
+  if (targetText) {
     const target = document.createElement('p')
     target.className = 'announcement-target'
-    target.textContent = `For: ${announcement.target}`
+    target.textContent = `For: ${targetText}`
     card.append(target)
   }
 
@@ -376,10 +417,11 @@ async function loadBranches() {
     .order('name')
   if (error) throw error
 
-  availableAnnouncementSections = data
-  const branches = [...new Set(data.map((section) => section.branch))]
+  availableAnnouncementSections = data || []
+  const branches = [...new Set(availableAnnouncementSections.map((section) => section.branch))]
   announcementFields.branch.replaceChildren(new Option('Select branch', '', true, true))
   announcementFields.branch.options[0].disabled = true
+  announcementFields.branch.add(new Option('ALL (All Branches)', 'ALL'))
   branches.forEach((branch) => {
     announcementFields.branch.add(new Option(branch, branch))
   })
@@ -390,22 +432,27 @@ function refreshAnnouncementSections() {
   const previousSection = announcementFields.section.value || 'ALL'
   announcementFields.section.replaceChildren(new Option('ALL', 'ALL'))
 
-  const names = [...new Set(
-    availableAnnouncementSections
-      .filter((section) => (
-        section.branch === announcementFields.branch.value &&
-        Number(section.semester) === Number(announcementFields.semester.value)
-      ))
-      .map((section) => section.name),
-  )]
+  const isAllSem = !announcementFields.semester.value || announcementFields.semester.value === 'ALL'
+  const isAllBranch = !announcementFields.branch.value || announcementFields.branch.value === 'ALL'
 
-  names.forEach((name) => announcementFields.section.add(new Option(name, name)))
-  const allowedValues = canTargetAll ? ['ALL', ...names] : names
-  if (allowedValues.includes(previousSection)) {
-    announcementFields.section.value = previousSection
-  } else if (names.length === 1 && !canTargetAll) {
-    announcementFields.section.value = names[0]
-  } else if (canTargetAll && (!previousSection || previousSection === 'ALL')) {
+  if (!isAllSem && !isAllBranch) {
+    const names = [...new Set(
+      availableAnnouncementSections
+        .filter((section) => (
+          section.branch === announcementFields.branch.value &&
+          Number(section.semester) === Number(announcementFields.semester.value)
+        ))
+        .map((section) => section.name),
+    )]
+
+    names.forEach((name) => announcementFields.section.add(new Option(name, name)))
+
+    if (names.includes(previousSection)) {
+      announcementFields.section.value = previousSection
+    } else {
+      announcementFields.section.value = 'ALL'
+    }
+  } else {
     announcementFields.section.value = 'ALL'
   }
 }
