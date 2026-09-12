@@ -82,12 +82,6 @@ function isPermissionError(error) {
   return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
 }
 
-function permissionDeniedError() {
-  const error = new Error('No authorized row was changed.')
-  error.code = '42501'
-  return error
-}
-
 function combineTodayWithTime(time) {
   const today = new Date()
   const year = today.getFullYear()
@@ -334,7 +328,6 @@ async function saveClass(event) {
     }
 
     if (error) throw error
-    if (!data) throw permissionDeniedError()
 
     closeClassForm()
     scheduleManagementStatus.textContent = isEditing
@@ -357,15 +350,13 @@ async function deleteClass(scheduleItem) {
   scheduleManagementStatus.textContent = 'Deleting timetable entry...'
 
   try {
-    const { data, error } = await window.supabaseClient
+    const { error } = await window.supabaseClient
       .from('timetable')
       .delete()
       .eq('id', scheduleItem.id)
       .select('id')
       .maybeSingle()
-
     if (error) throw error
-    if (!data) throw permissionDeniedError()
 
     scheduleManagementStatus.textContent = 'Timetable entry deleted successfully.'
     await loadSchedule()

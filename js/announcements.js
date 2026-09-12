@@ -27,17 +27,9 @@ let selectedCategory = 'All'
 let announcementsLoadFailed = false
 let canManageAnnouncements = false
 let availableAnnouncementSections = []
-let allAnnouncementSections = []
-let currentProfile = null
 
 function isPermissionError(error) {
   return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
-}
-
-function permissionDeniedError() {
-  const error = new Error('No authorized row was changed.')
-  error.code = '42501'
-  return error
 }
 
 function getCategoryLabel(category) {
@@ -63,9 +55,7 @@ function getSafeURL(value) {
 }
 
 function handleAnnouncementAction(announcement) {
-  const safeURL = getSafeURL(
-    announcement.actionUrl || announcement.action_url || announcement.url,
-  )
+  const safeURL = getSafeURL(announcement.actionUrl || announcement.url)
 
   if (safeURL) {
     window.location.href = safeURL
@@ -133,7 +123,6 @@ function openAnnouncementForm(announcement = null) {
   announcementForm.reset()
   announcementFields.id.value = announcement?.id ?? ''
   announcementFormTitle.textContent = announcement ? 'Edit Announcement' : 'Add Announcement'
-  refreshAnnouncementSections()
 
   if (announcement) {
     announcementFields.title.value = announcement.title || ''
@@ -200,16 +189,11 @@ async function saveAnnouncement(event) {
         .from('announcements')
         .update(getAnnouncementPayload())
         .eq('id', announcementId)
-        .select('id')
-        .maybeSingle()
       : window.supabaseClient
         .from('announcements')
         .insert(getAnnouncementPayload())
-        .select('id')
-        .single()
-    const { data, error } = await query
+    const { error } = await query
     if (error) throw error
-    if (!data) throw permissionDeniedError()
 
     closeAnnouncementForm()
     managementStatus.textContent = isEditing
@@ -231,14 +215,11 @@ async function deleteAnnouncement(announcement) {
   managementStatus.textContent = 'Deleting announcement...'
 
   try {
-    const { data, error } = await window.supabaseClient
+    const { error } = await window.supabaseClient
       .from('announcements')
       .delete()
       .eq('id', announcement.id)
-      .select('id')
-      .maybeSingle()
     if (error) throw error
-    if (!data) throw permissionDeniedError()
 
     managementStatus.textContent = 'Announcement deleted successfully.'
     await loadAnnouncements()
@@ -270,31 +251,10 @@ function createAnnouncementCard(announcement) {
   description.textContent = announcement.description || ''
   card.append(category, title, divider, description)
 
-  const targetSemester = getAnnouncementValue(
-    announcement,
-    'targetSemester',
-    'target_semester',
-  )
-  const targetBranch = getAnnouncementValue(
-    announcement,
-    'targetBranch',
-    'target_branch',
-  )
-  const targetSection = getAnnouncementValue(
-    announcement,
-    'targetSection',
-    'target_section',
-  )
-  const targetLabel = announcement.target || (
-    targetSemester && targetBranch && targetSection
-      ? `Semester ${targetSemester} • ${targetBranch} • Section ${targetSection}`
-      : ''
-  )
-
-  if (targetLabel) {
+  if (announcement.target) {
     const target = document.createElement('p')
     target.className = 'announcement-target'
-    target.textContent = `For: ${targetLabel}`
+    target.textContent = `For: ${announcement.target}`
     card.append(target)
   }
 
@@ -408,36 +368,16 @@ async function loadAnnouncements() {
 }
 
 async function loadBranches() {
-  const { data: sections, error } = await window.supabaseClient
+  const { data, error } = await window.supabaseClient
     .from('sections')
-    .select('id, name, branch, semester')
+    .select('name, branch, semester')
     .order('branch')
     .order('semester')
     .order('name')
   if (error) throw error
 
-  allAnnouncementSections = sections
-
-  if (currentProfile.role === 'professor') {
-    const { data: assignments, error: assignmentError } = await window.supabaseClient
-      .from('section_professors')
-      .select('section_id')
-      .eq('professor_id', currentProfile.id)
-    if (assignmentError) throw assignmentError
-
-    const assignedIds = new Set(assignments.map((assignment) => String(assignment.section_id)))
-    availableAnnouncementSections = sections.filter((section) => (
-      assignedIds.has(String(section.id))
-    ))
-  } else {
-    availableAnnouncementSections = sections.filter((section) => (
-      String(section.id) === String(currentProfile.section_id)
-    ))
-  }
-
-  const branches = [...new Set(
-    availableAnnouncementSections.map((section) => section.branch),
-  )]
+  availableAnnouncementSections = data
+  const branches = [...new Set(data.map((section) => section.branch))]
   announcementFields.branch.replaceChildren(new Option('Select branch', '', true, true))
   announcementFields.branch.options[0].disabled = true
   branches.forEach((branch) => {
@@ -447,27 +387,17 @@ async function loadBranches() {
 }
 
 function refreshAnnouncementSections() {
-  const previousSection = announcementFields.section.value
-  const selectedBranch = announcementFields.branch.value
-  const selectedSemester = Number(announcementFields.semester.value)
-  const matchesSelectedBatch = (section) => (
-    section.branch === selectedBranch &&
-    Number(section.semester) === selectedSemester
-  )
-  const authorizedSections = availableAnnouncementSections.filter(matchesSelectedBatch)
-  const allBatchSections = allAnnouncementSections.filter(matchesSelectedBatch)
-  const authorizedIds = new Set(authorizedSections.map((section) => String(section.id)))
-  const canTargetAll = allBatchSections.length > 0 && allBatchSections.every((section) => (
-    authorizedIds.has(String(section.id))
-  ))
+  const previousSection = announcementFields.section.value || 'ALL'
+  announcementFields.section.replaceChildren(new Option('ALL', 'ALL'))
 
-  announcementFields.section.replaceChildren(
-    new Option('Select section', '', true, true),
-  )
-  announcementFields.section.options[0].disabled = true
-  if (canTargetAll) announcementFields.section.add(new Option('ALL', 'ALL'))
-
-  const names = [...new Set(authorizedSections.map((section) => section.name))]
+  const names = [...new Set(
+    availableAnnouncementSections
+      .filter((section) => (
+        section.branch === announcementFields.branch.value &&
+        Number(section.semester) === Number(announcementFields.semester.value)
+      ))
+      .map((section) => section.name),
+  )]
 
   names.forEach((name) => announcementFields.section.add(new Option(name, name)))
   const allowedValues = canTargetAll ? ['ALL', ...names] : names
@@ -483,7 +413,6 @@ function refreshAnnouncementSections() {
 async function loadUserRole() {
   try {
     const user = await window.CampusAuth.getAuthenticatedUser()
-    currentProfile = user
     canManageAnnouncements = window.CampusAuth.canManageContent(user)
     addAnnouncementButton.hidden = !canManageAnnouncements
 
