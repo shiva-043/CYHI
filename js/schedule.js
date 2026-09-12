@@ -33,6 +33,12 @@ function isPermissionError(error) {
   return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
 }
 
+function permissionDeniedError() {
+  const error = new Error('No authorized row was changed.')
+  error.code = '42501'
+  return error
+}
+
 function combineTodayWithTime(time) {
   const today = new Date()
   const year = today.getFullYear()
@@ -173,10 +179,20 @@ async function saveClass(event) {
 
   try {
     const query = isEditing
-      ? window.supabaseClient.from('timetable').update(payload).eq('id', classId)
-      : window.supabaseClient.from('timetable').insert(payload)
-    const { error } = await query
+      ? window.supabaseClient
+        .from('timetable')
+        .update(payload)
+        .eq('id', classId)
+        .select('id')
+        .maybeSingle()
+      : window.supabaseClient
+        .from('timetable')
+        .insert(payload)
+        .select('id')
+        .single()
+    const { data, error } = await query
     if (error) throw error
+    if (!data) throw permissionDeniedError()
 
     closeClassForm()
     scheduleManagementStatus.textContent = isEditing
@@ -198,11 +214,14 @@ async function deleteClass(scheduleItem) {
   scheduleManagementStatus.textContent = 'Deleting timetable entry...'
 
   try {
-    const { error } = await window.supabaseClient
+    const { data, error } = await window.supabaseClient
       .from('timetable')
       .delete()
       .eq('id', scheduleItem.id)
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!data) throw permissionDeniedError()
 
     scheduleManagementStatus.textContent = 'Timetable entry deleted successfully.'
     await loadSchedule()
@@ -396,7 +415,9 @@ async function loadSections() {
       const assignedIds = new Set(assignments.map((item) => String(item.section_id)))
       availableSections = sections.filter((section) => assignedIds.has(String(section.id)))
     } else {
-      availableSections = sections
+      availableSections = sections.filter((section) => (
+        String(section.id) === String(currentProfile.section_id)
+      ))
     }
 
     const branches = [...new Set(availableSections.map((section) => section.branch))]
