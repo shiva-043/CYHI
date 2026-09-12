@@ -125,6 +125,24 @@ async function getTimetable() {
       .eq('day_of_week', weekday)
       .order('start_time')
 
+    if (loggedInProfile && !loggedInProfile.section_id && loggedInProfile.branch && loggedInProfile.semester && loggedInProfile.role !== 'professor') {
+      try {
+        const bName = loggedInProfile.branch.toUpperCase() === 'ME' ? 'MECH' : loggedInProfile.branch.toUpperCase()
+        const { data: matchedSecs } = await window.supabaseClient
+          .from('sections')
+          .select('id, name')
+          .eq('branch', bName)
+          .eq('semester', loggedInProfile.semester)
+        if (matchedSecs && matchedSecs.length > 0) {
+          const preferredName = (loggedInProfile.section_name || 'A').toUpperCase()
+          const found = matchedSecs.find((s) => s.name.toUpperCase() === preferredName) || matchedSecs[0]
+          loggedInProfile.section_id = found.id
+        }
+      } catch (secErr) {
+        console.warn('Could not auto-resolve section_id for dashboard:', secErr)
+      }
+    }
+
     if (loggedInProfile?.role === 'professor') {
       const { data: assignments } = await window.supabaseClient
         .from('section_professors')
@@ -132,9 +150,11 @@ async function getTimetable() {
         .eq('professor_id', loggedInProfile.id)
       if (assignments && assignments.length > 0) {
         query = query.in('section_id', assignments.map((a) => a.section_id))
+      } else {
+        query = query.eq('section_id', '00000000-0000-0000-0000-000000000000')
       }
-    } else if (loggedInProfile?.section_id != null) {
-      query = query.eq('section_id', loggedInProfile.section_id)
+    } else {
+      query = query.eq('section_id', loggedInProfile?.section_id || '00000000-0000-0000-0000-000000000000')
     }
 
     const { data, error } = await query

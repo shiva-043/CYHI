@@ -144,8 +144,8 @@ create table public.announcements (
   title text not null,
   description text not null,
   category text not null,
-  target_semester integer not null,
-  target_branch text not null,
+  target_semester integer,
+  target_branch text default 'ALL',
   target_section text default 'ALL',
   deadline timestamptz,
   button_text text,
@@ -159,9 +159,14 @@ create table public.announcements (
   constraint announcements_category_valid check (
     category in ('Academic', 'Events', 'Urgent')
   ),
-  constraint announcements_semester_valid check (target_semester between 1 and 8),
+  constraint announcements_semester_valid check (
+    target_semester is null
+    or target_semester = 0
+    or (target_semester between 1 and 8)
+  ),
   constraint announcements_branch_valid check (
-    btrim(target_branch) <> '' and target_branch = upper(target_branch)
+    target_branch is null
+    or (btrim(target_branch) <> '' and target_branch = upper(target_branch))
   ),
   constraint announcements_section_valid check (
     target_section is null

@@ -648,6 +648,24 @@ async function loadSchedule() {
       currentProfile = await window.CampusAuth.getAuthenticatedUser()
     }
 
+    if (!currentProfile.section_id && currentProfile.branch && currentProfile.semester && currentProfile.role !== 'professor') {
+      try {
+        const bName = currentProfile.branch.toUpperCase() === 'ME' ? 'MECH' : currentProfile.branch.toUpperCase()
+        const { data: matchedSecs } = await window.supabaseClient
+          .from('sections')
+          .select('id, name')
+          .eq('branch', bName)
+          .eq('semester', currentProfile.semester)
+        if (matchedSecs && matchedSecs.length > 0) {
+          const preferredName = (currentProfile.section_name || 'A').toUpperCase()
+          const found = matchedSecs.find((s) => s.name.toUpperCase() === preferredName) || matchedSecs[0]
+          currentProfile.section_id = found.id
+        }
+      } catch (secErr) {
+        console.warn('Could not auto-resolve section_id:', secErr)
+      }
+    }
+
     let query = window.supabaseClient
       .from('timetable')
       .select('*')
@@ -658,10 +676,13 @@ async function loadSchedule() {
       if (availableSections.length > 0) {
         const secIds = availableSections.map((s) => s.id)
         query = query.in('section_id', secIds)
+      } else {
+        query = query.eq('section_id', '00000000-0000-0000-0000-000000000000')
       }
-    } else if (currentProfile.section_id != null) {
-      // Students and CRs automatically filter to their own section
-      query = query.eq('section_id', currentProfile.section_id)
+    } else {
+      // Students and CRs automatically filter to their own section.
+      // If no section is assigned, query with a zero-UUID to prevent dumping all campus courses across other departments.
+      query = query.eq('section_id', currentProfile.section_id || '00000000-0000-0000-0000-000000000000')
     }
 
     const { data, error } = await query
@@ -984,8 +1005,8 @@ function parseTimeRangeString(text) {
   return { startTime: start, endTime: end }
 }
 
-const COURSE_CODE_REGEX = /\b([A-Z]{2,4}\s*[-]?\s*\d[A-Z0-9]{2,4}[A-Za-z]?|[A-Z]{2,4}\s*[-]?\s*\d{3,4}[A-Za-z]?|OE\s*[-]?\s*\d?)\b/i
-const ROOM_REGEX = /\b(L\s*-?\s*\d{3}|CR\s*-?\s*\d{3}|CC\s*[-]?\s*[A-Za-z0-9]+|LAB(?:\s*\d+)?|AUDI(?:TORIUM)?|HALL\s*[A-Z0-9]*|[A-Z]\d{3})\b/i
+const COURSE_CODE_REGEX = /\b([A-Z]{2,4}\s*[-]?\s*\d[A-Z0-9]{2,4}[A-Za-z]?|[A-Z]{2,4}\s*[-]?\s*\d{3,4}[A-Za-z]?|OE\s*[-]?\s*\d*)\b/i
+const ROOM_REGEX = /\b(L\s*-?\s*\d{3}|CR\s*-?\s*\d{3}|CC\s*[-]?\s*[A-Za-z0-9]+|LAB(?:\s*\d+)?|AUDI(?:TORIUM)?|HALL\s*[A-Z0-9]*|[A-Z]\d{3}|MC\s*Lab|CPPS\s*Lab|HMT\s*Lab|Workshop|VLSI\s*Lab|Design\s*Studio)\b/i
 const BATCH_REGEX = /\b([A-E][1-2]|Batch\s*[A-Z0-9]+|Group\s*[A-Z0-9]+|\([A-E][1-2]\))\b/i
 const FACULTY_TITLE_REGEX = /(?:Dr\.|Prof\.|Mr\.|Ms\.)\s+[A-Za-z]+(?:\s+[A-Za-z]+)*/i
 
@@ -999,7 +1020,7 @@ function parseClassSegment(cleaned, fallbackDay = 'Monday', fallbackTime = null)
     const code = m ? m[1].toUpperCase().replace(/\s+/g, '') : 'OE1'
     return {
       selected: true,
-      day: fallbackDay,
+      day: fallbackDay || 'Monday',
       start_time: fallbackTime?.startTime || '12:00:00',
       end_time: fallbackTime?.endTime || '12:55:00',
       course_code: code,
@@ -1013,7 +1034,7 @@ function parseClassSegment(cleaned, fallbackDay = 'Monday', fallbackTime = null)
 
   // Extract Course Code
   const codeMatch = cleaned.match(COURSE_CODE_REGEX)
-  let courseCode = codeMatch ? codeMatch[1].replace(/\s+/g, '') : null
+  let courseCode = codeMatch ? codeMatch[1].replace(/\s+/g, '').toUpperCase() : null
 
   let courseName = courseCode || ''
   let classType = 'class'
@@ -1028,6 +1049,11 @@ function parseClassSegment(cleaned, fallbackDay = 'Monday', fallbackTime = null)
     } else {
       return null
     }
+  }
+
+  // Ignore room numbers misidentified as course codes (e.g. CR101, CR201)
+  if (/^CR\d{3}$/i.test(courseCode)) {
+    return null
   }
 
   // Type determination
@@ -1064,7 +1090,7 @@ function parseClassSegment(cleaned, fallbackDay = 'Monday', fallbackTime = null)
   } else {
     // Strip out the course code or its prefix from text to isolate faculty initials
     const textWithoutCode = cleaned.replace(new RegExp(`^${courseCode}\\b`, 'i'), '').replace(/^[A-Z]{2,4}\s+\d+\b/i, '')
-    const words = textWithoutCode.split(/[\s,;()/:–-]+/)
+    const words = textWithoutCode.split(/[\s,;()\/:–-]+/)
     for (const w of words) {
       const up = w.toUpperCase()
       if (
@@ -1080,15 +1106,17 @@ function parseClassSegment(cleaned, fallbackDay = 'Monday', fallbackTime = null)
     }
   }
 
-  // Day check
-  let day = fallbackDay
-  const fullDayMatch = cleaned.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/i)
-  if (fullDayMatch) {
-    day = DAY_MAP[fullDayMatch[1].toLowerCase()] || day
-  } else if (!fallbackDay || fallbackDay === 'Monday') {
-    const shortDayMatch = cleaned.match(/\b(mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/i)
-    if (shortDayMatch) {
-      day = DAY_MAP[shortDayMatch[1].toLowerCase()] || day
+  // Day check: Only derive day from cell text if fallbackDay is not already provided
+  let day = fallbackDay || 'Monday'
+  if (!fallbackDay) {
+    const fullDayMatch = cleaned.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b/i)
+    if (fullDayMatch) {
+      day = DAY_MAP[fullDayMatch[1].toLowerCase()] || day
+    } else {
+      const shortDayMatch = cleaned.match(/\b(mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/i)
+      if (shortDayMatch) {
+        day = DAY_MAP[shortDayMatch[1].toLowerCase()] || day
+      }
     }
   }
 
@@ -1123,6 +1151,12 @@ function parseClassText(text, fallbackDay = 'Monday', fallbackTime = null) {
   // Skip table header keywords and days/breaks
   if (/^(timetable|schedule|time\s*table|sem|semester|mon|tue|wed|thu|fri|sat|day|monday|tuesday|wednesday|thursday|friday|saturday|break|lunch)$/i.test(rawTrimmed)) {
     return []
+  }
+
+  // If cell is an Open Elective cluster, treat as a single slot without splitting into multiline competing electives
+  if (/^OE\s*\d*:?/i.test(rawTrimmed) || /open\s*elective/i.test(rawTrimmed)) {
+    const singleOe = parseClassSegment(rawTrimmed, fallbackDay, fallbackTime)
+    return singleOe ? [singleOe] : []
   }
 
   // Handle multiline cell entries (e.g. multiple courses / electives separated by newlines)
@@ -1410,10 +1444,38 @@ async function parsePdfFile(file) {
 
     pdfParseStatus.hidden = true
 
+    const targetSectionId = pdfSection.value
+    const selectedSec = availableSections.find((s) => String(s.id) === String(targetSectionId))
+
+    const targetScope = {
+      branch: (selectedSec?.branch || currentProfile?.branch || '').toUpperCase().trim(),
+      semester: Number(selectedSec?.semester || currentProfile?.semester || 0) || null,
+      sectionName: (selectedSec?.name || '').toUpperCase().trim(),
+    }
+
+    if (targetScope && targetScope.branch) {
+      const tb = targetScope.branch === 'ME' ? 'MECH' : targetScope.branch
+      allExtracted = allExtracted.filter((item) => {
+        const itemSem = getSemFromCourseCode(item.course_code)
+        const itemBranch = getBranchFromCourseCode(item.course_code, null, item.batch)
+        if (targetScope.semester && itemSem && Number(itemSem) !== Number(targetScope.semester)) {
+          return false
+        }
+        if (itemBranch) {
+          const cb = itemBranch === 'ME' ? 'MECH' : itemBranch
+          if (cb !== tb) return false
+        }
+        if (!isSectionMatching(tb, targetScope.sectionName, item.batch, item.course_code, item.room)) {
+          return false
+        }
+        return true
+      })
+    }
+
     if (allExtracted.length === 0) {
       pdfImportMessage.className = 'pdf-import-message error'
       pdfImportMessage.textContent =
-        'No class entries could be automatically detected from this PDF. You can add entries below or use "+ Add Single Class".'
+        'No class entries matching your scope could be automatically detected from this PDF. You can add entries below or use "+ Add Single Class".'
       parsedPdfClasses = [createEmptyClassRow()]
       renderPdfPreviewTable(parsedPdfClasses)
       pdfPreviewSection.hidden = false
@@ -1439,6 +1501,150 @@ const ROMAN_TO_NUM = {
   1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8,
 }
 
+const IIITDMJ_COURSE_NAMES = {
+  CS1001: 'Introduction to Computer Science & Engineering',
+  IT1001: 'Application Oriented Programming',
+  IT1002: 'IT Workshop',
+  NS1001: 'Mathematics-I',
+  NS1002: 'Physics-I',
+  HS1001: 'Effective Communication Skills',
+  ES1002: 'Basic Electrical & Electronics Engineering',
+  ME1001: 'Engineering Mechanics',
+  DS1001: 'Design Drawing & Visualization',
+  DS1002: 'Design, Ecology and Society',
+  DS1005: 'Design Innovation & Prototyping',
+  CS2002: 'Discrete Mathematics',
+  CS2003: 'Data Structures',
+  CS2004: 'Digital Logic & Computer Design',
+  IT2001: 'Object Oriented Programming',
+  NS2001: 'Mathematics-III',
+  EC2002: 'Semiconductor Devices & Circuits',
+  IT2002: 'IT Workshop-II',
+  ME2002: 'Kinematics & Dynamics of Machines',
+  ME2003: 'Manufacturing Processes',
+  ME2004: 'Thermodynamics & Heat Transfer',
+  SM2002: 'Manufacturing Automation',
+  SM2003: 'Sensors & Actuators',
+  SM2004: 'Embedded Systems for Smart Manufacturing',
+  DS2007: 'Design Thinking & Innovation',
+  CS3009: 'Computer Networks',
+  CS3010: 'Database Management Systems',
+  CS3011: 'Theory of Computation',
+  HS3004: 'Professional Ethics',
+  EC3009: 'Digital Communication',
+  EC3010: 'Control Systems',
+  EC3011: 'Microwave & Radar Engineering',
+  ME3009: 'Design of Machine Elements',
+  ME3010: 'Fluid Mechanics & Machinery',
+  ME3011: 'Heat & Mass Transfer',
+  SM3009: 'Industrial IoT',
+  SM3010: 'Robotics & Automation',
+  SM3011: 'Additive Manufacturing',
+  SM3012: 'Quality Engineering',
+  DS3010: 'User Interface & Experience Design',
+}
+
+function getSemFromCourseCode(code, fallbackSem = null) {
+  if (!code || typeof code !== 'string') return fallbackSem
+  const c = code.toUpperCase().trim()
+  if (/^OE\s*[12]\b/i.test(c)) return 3
+  if (/^OE\s*[3]\b/i.test(c)) return 5
+  if (/^OE\s*([4-9]|1[0-9])\b/i.test(c)) return 7
+  const m = c.match(/^[A-Z]{2,4}(\d)/)
+  if (m) {
+    const digit = parseInt(m[1], 10)
+    if (digit === 1) return 1
+    if (digit === 2) return 3
+    if (digit === 3) return 5
+    if (digit === 4 || digit === 5 || digit === 8) return 7
+  }
+  return fallbackSem
+}
+
+function getBranchFromCourseCode(code, fallbackBranch = null, rowSec = null) {
+  if (!code || typeof code !== 'string') return fallbackBranch
+  const c = code.toUpperCase().trim()
+  const prefixMatch = c.match(/^[A-Z]+/)
+  const prefix = prefixMatch ? prefixMatch[0] : ''
+
+  if (prefix === 'CS') return 'CSE'
+  if (prefix === 'EC') return 'ECE'
+  if (prefix === 'ME') return 'MECH'
+  if (prefix === 'SM' || prefix === 'MT') return 'SM'
+  if (prefix === 'DS') {
+    if (c.startsWith('DS5')) return 'DES'
+    return 'DS'
+  }
+  if (prefix === 'IT') {
+    if (['IT1001', 'IT2001', 'IT3C01', 'IT3C01L'].includes(c)) return 'CSE'
+    if (c === 'IT2C01') return 'ECE'
+    if (c === 'IT2M01') return 'MECH'
+    if (['IT2S01', 'IT2S01L'].includes(c)) return 'SM'
+    if (['IT2E01', 'IT3E01'].includes(c)) return 'DS'
+    return fallbackBranch || 'CSE'
+  }
+  if (['NS', 'HS', 'ES'].includes(prefix)) {
+    if (fallbackBranch) return fallbackBranch === 'ME' ? 'MECH' : fallbackBranch
+    const secUpper = (rowSec || '').toUpperCase()
+    if (['A', 'B'].includes(secUpper)) return 'CSE'
+    if (secUpper === 'C') return 'ECE'
+    if (['D1', 'D'].includes(secUpper)) return 'MECH'
+    if (secUpper === 'D2') return 'SM'
+    if (['E1', 'E2', 'E'].includes(secUpper)) return 'DS'
+    return 'CSE'
+  }
+  if (prefix === 'OE') {
+    return fallbackBranch || 'CSE'
+  }
+  return fallbackBranch
+}
+
+function isSectionMatching(targetBranch, targetSec, rowSec, courseCode, roomText) {
+  if (!targetSec) return true
+  const tb = (targetBranch === 'ME' ? 'MECH' : targetBranch || '').toUpperCase()
+  const ts = targetSec.toUpperCase().trim()
+  const rs = (rowSec || '').toUpperCase().trim()
+  const room = (roomText || '').toUpperCase()
+
+  if (tb === 'CSE') {
+    if (ts === 'A') {
+      if (rs === 'B') return false
+      if (room.includes('L202') || room.includes('L105')) return false
+      return true
+    }
+    if (ts === 'B') {
+      if (rs === 'A') return false
+      if (room.includes('L102') || room.includes('L104')) return false
+      return true
+    }
+    return rs === ts || rs === '' || rs === 'ALL'
+  }
+
+  if (tb === 'MECH') {
+    if (['D', 'D1'].includes(ts)) {
+      return ['D', 'D1', 'ALL', ''].includes(rs)
+    }
+    return rs === ts || rs === '' || rs === 'ALL'
+  }
+
+  if (tb === 'SM') {
+    if (['D', 'D2'].includes(ts)) {
+      return ['D', 'D2', 'ALL', ''].includes(rs)
+    }
+    return rs === ts || rs === '' || rs === 'ALL'
+  }
+
+  if (tb === 'ECE') {
+    return ['C', 'A', 'ALL', ''].includes(rs)
+  }
+
+  if (tb === 'DS') {
+    return ['E', 'E1', 'E2', 'ALL', ''].includes(rs)
+  }
+
+  return rs === ts || rs === '' || rs === 'ALL'
+}
+
 function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
   if (typeof window.XLSX === 'undefined') return []
   const data = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
@@ -1455,7 +1661,7 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
   // Strategy 1: Check for Tabular / List headers (e.g. Day, Time, Course Code, Subject, Room, Faculty...)
   const headerRowIdx = data.findIndex((row) =>
     Array.isArray(row) &&
-    row.some((cell) => /(?:course\s*code|subject|time|start\s*time|day\s*of\s*week)/i.test(String(cell || '')))
+    row.some((cell) => /(?:course\s*code|subject|start\s*time|day\s*of\s*week)/i.test(String(cell || '')))
   )
 
   if (headerRowIdx !== -1 && headerRowIdx < 5) {
@@ -1516,6 +1722,14 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
             else if (tVal.includes('tut')) item.type = 'tut'
             else item.type = 'class'
           }
+
+          if (targetScope && targetScope.branch) {
+            const tb = targetScope.branch === 'ME' ? 'MECH' : targetScope.branch
+            const courseSem = getSemFromCourseCode(item.course_code)
+            const courseBranch = getBranchFromCourseCode(item.course_code)
+            if (targetScope.semester && courseSem && Number(courseSem) !== Number(targetScope.semester)) continue
+            if (courseBranch && (courseBranch === 'ME' ? 'MECH' : courseBranch) !== tb) continue
+          }
           listClasses.push(item)
         }
       }
@@ -1526,21 +1740,25 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
   }
 
   // Strategy 2: Grid Timetable Layout (e.g. official_timetable.xlsx)
-  let timeRowIdx = -1
-  const timeCols = {} // colIdx -> { startTime, endTime, raw }
+  // Step 2.1: Locate all canonical Time/Day Header rows across the sheet
+  const timeHeaderRows = []
+  const timeColsByRow = {}
 
-  for (let r = 0; r < Math.min(data.length, 15); r++) {
+  for (let r = 0; r < data.length; r++) {
     const row = data[r]
     if (!Array.isArray(row)) continue
-    let foundRanges = 0
-    const rowTimeCols = {}
+    const cell0 = String(row[0] || '').trim().toLowerCase()
+    const cell1 = String(row[1] || '').trim().toLowerCase()
+    const isHeaderCell = cell0.includes('time/day') || cell1.includes('time/day') || cell0.includes('time / day')
 
+    const rowCols = {}
+    let rangeCount = 0
     row.forEach((cell, cIdx) => {
       const cellStr = String(cell || '').trim()
       const tMatch = parseTimeRangeString(cellStr)
       if (tMatch) {
-        foundRanges++
-        rowTimeCols[cIdx] = {
+        rangeCount++
+        rowCols[cIdx] = {
           startTime: tMatch.startTime,
           endTime: tMatch.endTime,
           raw: cellStr,
@@ -1548,112 +1766,76 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
       }
     })
 
-    if (foundRanges >= 3) {
-      timeRowIdx = r
-      Object.assign(timeCols, rowTimeCols)
-      break
+    if (isHeaderCell || rangeCount >= 3) {
+      timeHeaderRows.push(r)
+      timeColsByRow[r] = rowCols
     }
   }
 
-  if (timeRowIdx === -1 || Object.keys(timeCols).length === 0) {
+  if (timeHeaderRows.length === 0) {
     return []
   }
 
-  // Pre-scan for initial day before or at timeRowIdx (e.g. Row 2 in official_timetable.xlsx has "Monday")
-  let currentDay = defaultDay || null
-  for (let r = 0; r <= timeRowIdx; r++) {
-    const row = data[r]
-    if (!Array.isArray(row)) continue
-    for (let c = 0; c < Math.min(row.length, 5); c++) {
-      const cellVal = String(row[c] || '').trim()
-      if (!cellVal || cellVal.includes(':') || cellVal.includes('-')) continue
-      const d = normalizeDay(cellVal)
-      if (d) {
-        currentDay = d
-        break
-      }
-    }
-    if (currentDay) break
-  }
-  if (!currentDay) currentDay = 'Monday'
+  // Step 2.2: Map each row in the sheet to its canonical weekday
+  const rowDayMap = {}
+  for (let i = 0; i < timeHeaderRows.length; i++) {
+    const hRow = timeHeaderRows[i]
+    let dayForBlock = defaultDay || null
 
-  let dayIdx = WEEKDAYS.indexOf(currentDay) >= 0 ? WEEKDAYS.indexOf(currentDay) : 0
+    for (const checkR of [hRow - 1, hRow]) {
+      if (checkR >= 0 && Array.isArray(data[checkR])) {
+        for (let c = 0; c < Math.min(data[checkR].length, 5); c++) {
+          const val = String(data[checkR][c] || '').trim()
+          if (!val || val.includes(':') || val.includes('-')) continue
+          const d = normalizeDay(val)
+          if (d) {
+            dayForBlock = d
+            break
+          }
+        }
+      }
+      if (dayForBlock) break
+    }
+
+    if (!dayForBlock) {
+      dayForBlock = WEEKDAYS[i] || 'Saturday'
+    }
+
+    const nextHRow = i + 1 < timeHeaderRows.length ? timeHeaderRows[i + 1] : data.length
+    for (let r = hRow; r < nextHRow; r++) {
+      rowDayMap[r] = dayForBlock
+    }
+  }
+
+  let activeTimeCols = timeColsByRow[timeHeaderRows[0]] || {}
+
   let currentSem = null
   let currentBranch = null
   let branchRowCount = 0
+  let semRowOffset = 0
+
   const gridClasses = []
   const allGridClasses = []
 
-  for (let r = timeRowIdx + 1; r < data.length; r++) {
+  for (let r = 0; r < data.length; r++) {
     const row = data[r]
     if (!Array.isArray(row) || row.length === 0) continue
 
-    // Check if this row is a repeated Time Header row (e.g. rows 50, 97, 144, 191, 239)
-    let foundTimeRanges = 0
-    const rowTimeCols = {}
-    row.forEach((cell, cIdx) => {
-      const cellStr = String(cell || '').trim()
-      const tMatch = parseTimeRangeString(cellStr)
-      if (tMatch) {
-        foundTimeRanges++
-        rowTimeCols[cIdx] = {
-          startTime: tMatch.startTime,
-          endTime: tMatch.endTime,
-          raw: cellStr,
-        }
-      }
-    })
-
-    const isTimeHeader = foundTimeRanges >= 3 || (row[0] && String(row[0]).toLowerCase().includes('time/day'))
-    if (isTimeHeader) {
-      if (foundTimeRanges >= 3) {
-        Object.assign(timeCols, rowTimeCols)
-      }
-      // Check if this row explicitly names a day
-      let dayOnRow = null
-      for (let c = 0; c < Math.min(row.length, 4); c++) {
-        const cellVal = String(row[c] || '').trim()
-        if (!cellVal || cellVal.includes(':') || cellVal.includes('-')) continue
-        const d = normalizeDay(cellVal)
-        if (d) { dayOnRow = d; break; }
-      }
-      if (dayOnRow) {
-        currentDay = dayOnRow
-        dayIdx = WEEKDAYS.indexOf(dayOnRow) >= 0 ? WEEKDAYS.indexOf(dayOnRow) : dayIdx
-      } else {
-        // Advance to next weekday in sequence
-        dayIdx = (dayIdx + 1) % WEEKDAYS.length
-        currentDay = WEEKDAYS[dayIdx]
+    if (timeHeaderRows.includes(r)) {
+      if (timeColsByRow[r] && Object.keys(timeColsByRow[r]).length >= 3) {
+        activeTimeCols = timeColsByRow[r]
       }
       currentSem = null
       currentBranch = null
       branchRowCount = 0
+      semRowOffset = 0
       continue
     }
 
-    // Check if this row announces a Day (e.g. "Monday", "Tuesday")
-    let explicitDay = null
-    for (let c = 0; c < Math.min(row.length, 4); c++) {
-      const cellVal = String(row[c] || '').trim()
-      if (!cellVal || cellVal.includes(':') || cellVal.includes('-')) continue
-      const detectedDay = normalizeDay(cellVal)
-      if (detectedDay) {
-        explicitDay = detectedDay
-        break
-      }
-    }
-    if (explicitDay) {
-      currentDay = explicitDay
-      dayIdx = WEEKDAYS.indexOf(explicitDay) >= 0 ? WEEKDAYS.indexOf(explicitDay) : dayIdx
-      currentSem = null
-      currentBranch = null
-      branchRowCount = 0
-      continue
-    }
+    const day = rowDayMap[r] || 'Monday'
 
-    // Check if this row announces a Semester (e.g. "I Sem", "Sem 3", "III Sem")
     let semFound = null
-    for (let c = 0; c < Math.min(row.length, 4); c++) {
+    for (let c = 0; c < Math.min(row.length, 5); c++) {
       const cellVal = String(row[c] || '').trim()
       const semMatch = cellVal.match(/\b([IVX]+|\d+)\s*sem\b/i)
       if (semMatch) {
@@ -1664,12 +1846,16 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
         }
       }
     }
+
     if (semFound) {
       currentSem = semFound
       currentBranch = null
       branchRowCount = 0
+      semRowOffset = 0
       continue
     }
+
+    semRowOffset++
 
     const col0 = String(row[0] || '').trim().toUpperCase()
     const col1 = String(row[1] || '').trim().toUpperCase()
@@ -1681,11 +1867,11 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
       currentBranch = col1 === 'ME' ? 'MECH' : col1
       branchRowCount = 1
     } else if (currentBranch) {
-      const hasTimeCells = Object.keys(timeCols).some((c) => {
+      const hasContent = Object.keys(activeTimeCols).some((c) => {
         const val = String(row[Number(c)] || '').trim()
         return val && val !== '_' && val !== '-' && !/^(break|lunch)$/i.test(val)
       })
-      if (hasTimeCells) {
+      if (hasContent) {
         branchRowCount++
       }
     }
@@ -1694,34 +1880,36 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
     if (!sec && ['A', 'B', 'C', 'D1', 'D2', 'E1', 'E2', 'D', 'E'].includes(col0)) {
       sec = col0
     }
-    // Positional section inference when col B ('Group') is omitted
-    if (!sec && currentBranch) {
-      if (currentBranch === 'CSE') {
-        sec = branchRowCount === 1 ? 'A' : 'B'
-      } else if (currentBranch === 'ECE') {
-        sec = 'C'
-      } else if (currentBranch === 'MECH') {
-        sec = branchRowCount === 1 ? 'D1' : 'D2'
-      } else if (currentBranch === 'DS') {
-        sec = branchRowCount === 1 ? 'E1' : 'E2'
-      }
+
+    // Positional section and branch inference when omitted from cells
+    if (currentSem === 1) {
+      if (semRowOffset === 1) { currentBranch = 'CSE'; sec = 'A'; }
+      else if (semRowOffset === 2) { currentBranch = 'CSE'; sec = 'B'; }
+      else if (semRowOffset === 3) { currentBranch = 'ECE'; sec = 'C'; }
+      else if (semRowOffset === 4) { currentBranch = 'MECH'; sec = 'D1'; }
+      else if (semRowOffset === 5) { currentBranch = 'SM'; sec = 'D2'; }
+      else if (semRowOffset === 6) { currentBranch = 'DS'; sec = 'E1'; }
+      else if (semRowOffset === 7) { currentBranch = 'DS'; sec = 'E2'; }
+    } else if (currentSem === 3 || currentSem === 5) {
+      if (semRowOffset === 1) { currentBranch = 'CSE'; sec = 'A'; }
+      else if (semRowOffset === 2) { currentBranch = 'CSE'; sec = 'B'; }
+      else if (semRowOffset === 3) { currentBranch = 'ECE'; sec = 'C'; }
+      else if (semRowOffset === 4) { currentBranch = 'MECH'; sec = 'D1'; }
+      else if (semRowOffset === 5) { currentBranch = 'SM'; sec = 'D2'; }
+      else if (semRowOffset === 6) { currentBranch = 'DS'; sec = 'E'; }
+    } else if (currentSem === 7) {
+      if (semRowOffset === 1) { currentBranch = 'CSE'; sec = 'ALL'; }
+      else if (semRowOffset === 2) { currentBranch = 'ECE'; sec = 'ALL'; }
+      else if (semRowOffset === 3) { currentBranch = 'MECH'; sec = 'ALL'; }
+      else if (semRowOffset === 4) { currentBranch = 'SM'; sec = 'ALL'; }
+      else if (semRowOffset === 5) { currentBranch = 'DS'; sec = 'ALL'; }
     }
 
     const rowBranch = currentBranch
     const rowSem = currentSem
     const rowSec = sec
 
-    const matchesScope =
-      targetScope &&
-      targetScope.branch &&
-      rowBranch &&
-      (rowBranch === targetScope.branch ||
-        (targetScope.branch === 'MECH' && rowBranch === 'ME') ||
-        (targetScope.branch === 'ME' && rowBranch === 'MECH')) &&
-      (!targetScope.semester || Number(rowSem) === Number(targetScope.semester)) &&
-      (!targetScope.sectionName || rowSec === targetScope.sectionName)
-
-    for (const [colIdxStr, tInfo] of Object.entries(timeCols)) {
+    for (const [colIdxStr, tInfo] of Object.entries(activeTimeCols)) {
       const c = Number(colIdxStr)
       const cellStr = String(row[c] || '').trim()
       if (!cellStr || cellStr === '_' || cellStr === '-' || /^(break|lunch)$/i.test(cellStr)) {
@@ -1732,27 +1920,54 @@ function extractClassesFromExcelSheet(sheet, targetScope, defaultDay = null) {
       const mergeKey = `${r},${c}`
       if (merges[mergeKey]) {
         const endC = merges[mergeKey].endC
-        if (timeCols[endC]) {
-          finalEndTime = timeCols[endC].endTime
+        if (activeTimeCols[endC]) {
+          finalEndTime = activeTimeCols[endC].endTime
         }
       }
 
       const parsedItems = parseClassText(
         cellStr,
-        currentDay || 'Monday',
+        day,
         { startTime: tInfo.startTime, endTime: finalEndTime }
       )
 
-      if (parsedItems && parsedItems.length > 0) {
-        if (matchesScope) {
-          gridClasses.push(...parsedItems)
+      for (const item of parsedItems) {
+        if (IIITDMJ_COURSE_NAMES[item.course_code]) {
+          item.course_name = IIITDMJ_COURSE_NAMES[item.course_code]
         }
-        allGridClasses.push(...parsedItems)
+
+        const courseSem = getSemFromCourseCode(item.course_code, rowSem)
+        const courseBranch = getBranchFromCourseCode(item.course_code, rowBranch, rowSec)
+
+        item._sem = courseSem
+        item._branch = courseBranch
+        item._sec = rowSec
+
+        if (targetScope && targetScope.branch) {
+          const targetB = targetScope.branch === 'ME' ? 'MECH' : targetScope.branch
+          const courseB = (courseBranch === 'ME' ? 'MECH' : courseBranch || '').toUpperCase()
+
+          if (courseB && courseB !== targetB) {
+            continue
+          }
+
+          if (targetScope.semester && courseSem && Number(courseSem) !== Number(targetScope.semester)) {
+            continue
+          }
+
+          if (!isSectionMatching(targetB, targetScope.sectionName, rowSec, item.course_code, item.room)) {
+            continue
+          }
+
+          gridClasses.push(item)
+        }
+
+        allGridClasses.push(item)
       }
     }
   }
 
-  if (gridClasses.length > 0) {
+  if (targetScope && targetScope.branch) {
     return gridClasses
   }
 
