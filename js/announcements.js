@@ -1,5 +1,3 @@
-const API_BASE_URL = 'http://localhost:3000/api'
-
 const announcementsList = document.querySelector('#announcementsList')
 const filterButtons = document.querySelector('#filterButtons')
 const reminderPageStatus = document.querySelector('#reminderPageStatus')
@@ -28,6 +26,11 @@ let announcements = []
 let selectedCategory = 'All'
 let announcementsLoadFailed = false
 let canManageAnnouncements = false
+let availableAnnouncementSections = []
+
+function isPermissionError(error) {
+  return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
+}
 
 function getCategoryLabel(category) {
   const labels = {
@@ -68,16 +71,11 @@ async function handleReminderAction(announcement, reminderButton) {
   reminderButton.textContent = 'Setting reminder...'
 
   try {
-    const response = await window.CampusAuth.apiFetch(
-      `${API_BASE_URL}/announcement-reminders`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ announcementId: announcement.id }),
-      },
+    const { error } = await window.supabaseClient.functions.invoke(
+      'schedule-announcement-reminder',
+      { body: { announcementId: announcement.id } },
     )
-
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    if (error) throw error
 
     reminderButton.textContent = 'Reminder set'
     reminderButton.classList.add('reminder-set')
@@ -86,8 +84,8 @@ async function handleReminderAction(announcement, reminderButton) {
     console.error('Unable to set email reminder:', error)
     reminderButton.disabled = false
     reminderButton.textContent = 'Email reminder'
-    reminderPageStatus.textContent = error.name === 'PermissionError'
-      ? error.message
+    reminderPageStatus.textContent = isPermissionError(error)
+      ? 'You do not have permission to perform this action.'
       : 'Unable to set the email reminder. Please try again later.'
   }
 }
@@ -127,11 +125,12 @@ function openAnnouncementForm(announcement = null) {
     announcementFields.description.value = announcement.description || ''
     announcementFields.category.value = announcement.category || ''
     announcementFields.semester.value = String(
-      getAnnouncementValue(announcement, 'targetSemester', 'target_semester') || 'ALL',
+      getAnnouncementValue(announcement, 'targetSemester', 'target_semester') || '',
     )
     announcementFields.branch.value = String(
-      getAnnouncementValue(announcement, 'targetBranch', 'target_branch') || 'ALL',
+      getAnnouncementValue(announcement, 'targetBranch', 'target_branch') || '',
     )
+    refreshAnnouncementSections()
     announcementFields.section.value = String(
       getAnnouncementValue(announcement, 'targetSection', 'target_section') || 'ALL',
     )
@@ -163,14 +162,12 @@ function getAnnouncementPayload() {
     title: announcementFields.title.value.trim(),
     description: announcementFields.description.value.trim(),
     category: announcementFields.category.value,
-    targetSemester: announcementFields.semester.value === 'ALL'
-      ? 'ALL'
-      : Number(announcementFields.semester.value),
-    targetBranch: announcementFields.branch.value,
-    targetSection: announcementFields.section.value,
+    target_semester: Number(announcementFields.semester.value),
+    target_branch: announcementFields.branch.value,
+    target_section: announcementFields.section.value,
     deadline: announcementFields.deadline.value || null,
-    buttonText: announcementFields.buttonText.value.trim(),
-    actionUrl: announcementFields.actionUrl.value.trim(),
+    button_text: announcementFields.buttonText.value.trim(),
+    action_url: announcementFields.actionUrl.value.trim(),
   }
 }
 
@@ -180,20 +177,19 @@ async function saveAnnouncement(event) {
 
   const announcementId = announcementFields.id.value
   const isEditing = announcementId !== ''
-  const endpoint = isEditing
-    ? `${API_BASE_URL}/announcements/${encodeURIComponent(announcementId)}`
-    : `${API_BASE_URL}/announcements`
-
   managementStatus.textContent = 'Saving announcement...'
 
   try {
-    const response = await window.CampusAuth.apiFetch(endpoint, {
-      method: isEditing ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(getAnnouncementPayload()),
-    })
-
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    const query = isEditing
+      ? window.supabaseClient
+        .from('announcements')
+        .update(getAnnouncementPayload())
+        .eq('id', announcementId)
+      : window.supabaseClient
+        .from('announcements')
+        .insert(getAnnouncementPayload())
+    const { error } = await query
+    if (error) throw error
 
     closeAnnouncementForm()
     managementStatus.textContent = isEditing
@@ -202,8 +198,8 @@ async function saveAnnouncement(event) {
     await loadAnnouncements()
   } catch (error) {
     console.error('Unable to save announcement:', error)
-    managementStatus.textContent = error.name === 'PermissionError'
-      ? error.message
+    managementStatus.textContent = isPermissionError(error)
+      ? 'You do not have permission to perform this action.'
       : 'Unable to save the announcement. Please try again.'
   }
 }
@@ -215,19 +211,18 @@ async function deleteAnnouncement(announcement) {
   managementStatus.textContent = 'Deleting announcement...'
 
   try {
-    const response = await window.CampusAuth.apiFetch(
-      `${API_BASE_URL}/announcements/${encodeURIComponent(announcement.id)}`,
-      { method: 'DELETE' },
-    )
-
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
+    const { error } = await window.supabaseClient
+      .from('announcements')
+      .delete()
+      .eq('id', announcement.id)
+    if (error) throw error
 
     managementStatus.textContent = 'Announcement deleted successfully.'
     await loadAnnouncements()
   } catch (error) {
     console.error('Unable to delete announcement:', error)
-    managementStatus.textContent = error.name === 'PermissionError'
-      ? error.message
+    managementStatus.textContent = isPermissionError(error)
+      ? 'You do not have permission to perform this action.'
       : 'Unable to delete the announcement. Please try again.'
   }
 }
@@ -351,11 +346,11 @@ function filterAnnouncements() {
 
 async function loadAnnouncements() {
   try {
-    const response = await window.CampusAuth.apiFetch(`${API_BASE_URL}/announcements`)
-    if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
-
-    const data = await response.json()
-    if (!Array.isArray(data)) throw new Error('The announcements response is not an array.')
+    const { data, error } = await window.supabaseClient
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) throw error
 
     announcements = data
     announcementsLoadFailed = false
@@ -369,29 +364,41 @@ async function loadAnnouncements() {
 }
 
 async function loadBranches() {
-  try {
-    const response = await window.CampusAuth.apiFetch(`${API_BASE_URL}/branches`)
-    if (!response.ok) return
+  const { data, error } = await window.supabaseClient
+    .from('sections')
+    .select('name, branch, semester')
+    .order('branch')
+    .order('semester')
+    .order('name')
+  if (error) throw error
 
-    const branches = await response.json()
-    if (!Array.isArray(branches)) return
+  availableAnnouncementSections = data
+  const branches = [...new Set(data.map((section) => section.branch))]
+  announcementFields.branch.replaceChildren(new Option('Select branch', '', true, true))
+  announcementFields.branch.options[0].disabled = true
+  branches.forEach((branch) => {
+    announcementFields.branch.add(new Option(branch, branch))
+  })
+  refreshAnnouncementSections()
+}
 
-    document.querySelectorAll('.branch-select').forEach((select) => {
-      const existingValues = new Set([...select.options].map((option) => option.value))
-      branches.forEach((branch) => {
-        const branchCode = typeof branch === 'string' ? branch : branch.code
-        if (!branchCode || existingValues.has(branchCode)) return
+function refreshAnnouncementSections() {
+  const previousSection = announcementFields.section.value || 'ALL'
+  announcementFields.section.replaceChildren(new Option('ALL', 'ALL'))
 
-        const option = document.createElement('option')
-        option.value = branchCode
-        option.textContent = branchCode
-        select.append(option)
-        existingValues.add(branchCode)
-      })
-    })
-  } catch (error) {
-    console.error('Unable to load additional branches:', error)
-  }
+  const names = [...new Set(
+    availableAnnouncementSections
+      .filter((section) => (
+        section.branch === announcementFields.branch.value &&
+        Number(section.semester) === Number(announcementFields.semester.value)
+      ))
+      .map((section) => section.name),
+  )]
+
+  names.forEach((name) => announcementFields.section.add(new Option(name, name)))
+  announcementFields.section.value = names.includes(previousSection)
+    ? previousSection
+    : 'ALL'
 }
 
 async function loadUserRole() {
@@ -402,10 +409,12 @@ async function loadUserRole() {
 
     if (canManageAnnouncements) await loadBranches()
     if (!announcementsLoadFailed) filterAnnouncements()
+    return true
   } catch (error) {
     console.error('Unable to determine announcement permissions:', error)
     canManageAnnouncements = false
     addAnnouncementButton.hidden = true
+    return false
   }
 }
 
@@ -424,6 +433,8 @@ filterButtons.addEventListener('click', (event) => {
 
 addAnnouncementButton.addEventListener('click', () => openAnnouncementForm())
 announcementForm.addEventListener('submit', saveAnnouncement)
+announcementFields.branch.addEventListener('change', refreshAnnouncementSections)
+announcementFields.semester.addEventListener('change', refreshAnnouncementSections)
 closeAnnouncementFormButton.addEventListener('click', closeAnnouncementForm)
 cancelAnnouncementFormButton.addEventListener('click', closeAnnouncementForm)
 announcementModal.addEventListener('click', (event) => {
@@ -433,8 +444,10 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !announcementModal.hidden) closeAnnouncementForm()
 })
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  const isAuthenticated = await loadUserRole()
+  if (!isAuthenticated) return
+
   loadAnnouncements()
-  loadUserRole()
   setInterval(loadAnnouncements, 60000)
 })

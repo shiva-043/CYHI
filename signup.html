@@ -51,9 +51,9 @@
             <input
               id="userIdentity"
               name="userIdentity"
-              type="text"
-              placeholder="Enter username or email"
-              autocomplete="username"
+              type="email"
+              placeholder="Enter your IIITDM email"
+              autocomplete="email"
               aria-describedby="userIdentityError"
             />
             <p class="field-error" id="userIdentityError" aria-live="polite"></p>
@@ -90,24 +90,24 @@
             <label for="branch">Branch</label>
             <select id="branch" name="branch" aria-describedby="branchError">
               <option value="" selected disabled>Select your branch</option>
-              <option value="cse">CSE</option>
-              <option value="ece">ECE</option>
-              <option value="mech">MECH</option>
-              <option value="sm">SM</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+              <option value="SM">SM</option>
             </select>
             <p class="field-error" id="branchError" aria-live="polite"></p>
           </div>
 
           <div class="form-group student-detail">
             <label for="section">Section</label>
-            <input
-              id="section"
-              name="section"
-              type="text"
-              placeholder="Enter your section"
-              autocomplete="off"
-              aria-describedby="sectionError"
-            />
+            <select id="section" name="section" aria-describedby="sectionError">
+              <option value="" selected disabled>Select your section</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+            </select>
             <p class="field-error" id="sectionError" aria-live="polite"></p>
           </div>
 
@@ -157,7 +157,8 @@
             <p class="field-error" id="confirmPasswordError" aria-live="polite"></p>
           </div>
 
-          <button class="auth-submit" type="submit">Sign Up</button>
+          <p class="auth-status" id="signupStatus" aria-live="polite"></p>
+          <button class="auth-submit" id="signupButton" type="submit">Sign Up</button>
         </form>
 
         <p class="auth-switch">
@@ -166,6 +167,8 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/supabase.js" defer></script>
     <script src="js/signup.js" defer></script>
   </body>
 </html>

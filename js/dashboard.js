@@ -1,6 +1,3 @@
-// Change this URL when the backend is deployed.
-const API_BASE_URL = 'http://localhost:3000/api'
-
 // Store the page elements that will receive backend data.
 const greetingHeading = document.querySelector('#greeting')
 const greetingText = document.querySelector('#greetingText')
@@ -9,17 +6,7 @@ const nextClassContent = document.querySelector('#nextClassContent')
 const importantContent = document.querySelector('#importantContent')
 const eventsContent = document.querySelector('#eventsContent')
 let loggedInUserName = ''
-
-// Return JSON from an API endpoint or throw a useful error.
-async function getJSON(endpoint) {
-  const response = await window.CampusAuth.apiFetch(`${API_BASE_URL}${endpoint}`)
-
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`)
-  }
-
-  return response.json()
-}
+let loggedInProfile = null
 
 // Choose the greeting from the visitor's current local time.
 function getGreetingForCurrentTime() {
@@ -43,12 +30,20 @@ async function getUserDetails() {
     if (!user || typeof user.name !== 'string' || user.name.trim() === '') {
       throw new Error('The user response does not contain a valid name.')
     }
-
+    loggedInProfile = user
     displayUserName(user.name.trim())
   } catch (error) {
     console.error('Unable to load user details:', error)
     greetingHeading.textContent = 'Welcome 👋'
   }
+}
+
+function combineTodayWithTime(time) {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}T${time}`
 }
 
 // Format an ISO date as a friendly time such as "10:00 AM".
@@ -67,6 +62,7 @@ function displayNextClass(timetable) {
       ...classItem,
       startDate: new Date(classItem.startTime),
     }))
+    .filter((classItem) => classItem.type === 'class')
     .filter((classItem) => !Number.isNaN(classItem.startDate.getTime()))
     .filter((classItem) => classItem.startDate > now)
     .sort((firstClass, secondClass) => firstClass.startDate - secondClass.startDate)
@@ -100,11 +96,24 @@ function displayNextClass(timetable) {
 
 async function getTimetable() {
   try {
-    const timetable = await getJSON('/timetable/today')
+    const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+    let query = window.supabaseClient
+      .from('timetable')
+      .select('*')
+      .eq('day_of_week', weekday)
+      .order('start_time')
 
-    if (!Array.isArray(timetable)) {
-      throw new Error('The timetable response is not an array.')
+    if (loggedInProfile?.section_id != null) {
+      query = query.eq('section_id', loggedInProfile.section_id)
     }
+    const { data, error } = await query
+    if (error) throw error
+
+    const timetable = data.map((item) => ({
+      ...item,
+      startTime: combineTodayWithTime(item.start_time),
+      endTime: combineTodayWithTime(item.end_time),
+    }))
 
     displayNextClass(timetable)
   } catch (error) {
@@ -152,11 +161,13 @@ function displayImportantUpdates(updates) {
 
 async function getImportantUpdates() {
   try {
-    const updates = await getJSON('/important')
-
-    if (!Array.isArray(updates)) {
-      throw new Error('The important updates response is not an array.')
-    }
+    const { data: updates, error } = await window.supabaseClient
+      .from('announcements')
+      .select('*')
+      .eq('category', 'Urgent')
+      .order('created_at', { ascending: false })
+      .limit(3)
+    if (error) throw error
 
     displayImportantUpdates(updates)
   } catch (error) {
@@ -197,13 +208,23 @@ function displayEvents(events) {
 
 async function getUpcomingEvents() {
   try {
-    const events = await getJSON('/events/upcoming')
+    const { data: events, error } = await window.supabaseClient
+      .from('announcements')
+      .select('*')
+      .eq('category', 'Events')
+      .order('created_at', { ascending: false })
+      .limit(3)
+    if (error) throw error
 
-    if (!Array.isArray(events)) {
-      throw new Error('The upcoming events response is not an array.')
-    }
-
-    displayEvents(events)
+    displayEvents(events.map((event) => ({
+      ...event,
+      date: event.deadline
+        ? new Date(event.deadline).toLocaleDateString([], { day: 'numeric', month: 'short' })
+        : '',
+      time: event.deadline
+        ? new Date(event.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : '',
+    })))
   } catch (error) {
     console.error('Unable to load upcoming events:', error)
     eventsContent.replaceChildren()
@@ -227,10 +248,9 @@ async function loadChangingDashboardData() {
 }
 
 async function loadDashboard() {
-  await Promise.all([
-    getUserDetails(),
-    loadChangingDashboardData(),
-  ])
+  await getUserDetails()
+  if (!loggedInProfile) return
+  await loadChangingDashboardData()
 }
 
 importantContent.addEventListener('click', (event) => {
