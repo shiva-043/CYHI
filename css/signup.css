@@ -1,0 +1,30 @@
+/* Signup uses the same visual language as Login. */
+@import url('login.css');
+
+.signup-page .auth-layout {
+  padding-top: 38px;
+  padding-bottom: 38px;
+}
+
+.signup-page .auth-card {
+  width: min(100%, 530px);
+}
+
+.signup-page .auth-heading p {
+  margin-bottom: 28px;
+}
+
+.signup-page .form-group {
+  margin-bottom: 13px;
+}
+
+.signup-page .auth-submit {
+  margin-top: 4px;
+}
+
+@media (max-width: 540px) {
+  .signup-page .auth-layout {
+    padding-top: 26px;
+    padding-bottom: 26px;
+  }
+}

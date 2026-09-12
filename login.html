@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="Login to IIITDM Jabalpur Campus Companion." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/login.css" />
+    <title>Login | IIITDM Campus Companion</title>
+  </head>
+  <body class="auth-page">
+    <main class="auth-layout">
+      <a class="auth-brand" href="index.html" aria-label="Return to the opening page">
+        <span class="auth-brand-mark" aria-hidden="true">I</span>
+        <span class="auth-brand-copy">
+          <strong>IIITDM JABALPUR</strong>
+          <span>Campus Companion</span>
+        </span>
+      </a>
+
+      <section class="auth-card" aria-labelledby="loginHeading">
+        <div class="auth-heading">
+          <span class="auth-accent" aria-hidden="true"></span>
+          <h1 id="loginHeading">Welcome Back</h1>
+          <p>Login to your Campus Companion account</p>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="Enter your username"
+              autocomplete="username"
+              aria-describedby="usernameError"
+            />
+            <p class="field-error" id="usernameError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="password-field">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                aria-describedby="passwordError"
+              />
+              <button
+                class="password-toggle"
+                id="passwordToggle"
+                type="button"
+                aria-label="Show password"
+              >
+                <span aria-hidden="true">👁</span>
+              </button>
+            </div>
+            <p class="field-error" id="passwordError" aria-live="polite"></p>
+          </div>
+
+          <div class="form-help">
+            <button class="text-button" id="forgotPassword" type="button">
+              Forgot Password?
+            </button>
+          </div>
+          <p class="recovery-message" id="recoveryMessage" aria-live="polite"></p>
+
+          <button class="auth-submit" type="submit">Login</button>
+        </form>
+
+        <p class="auth-switch">
+          Don't have an account? <a href="signup.html">Sign Up</a>
+        </p>
+      </section>
+    </main>
+
+    <script src="js/login.js" defer></script>
+  </body>
+</html>
