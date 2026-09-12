@@ -122,6 +122,9 @@ signupForm.addEventListener('submit', (event) => {
     confirmationIsPresent &&
     passwordsMatch
   ) {
-    // A backend request can be added here later.
+    // This opens the Login page after the current frontend validation.
+    // When the backend is connected, move this redirect after a successful
+    // account-creation response.
+    window.location.href = 'login.html'
   }
 })

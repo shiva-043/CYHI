@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2146" />
+    <meta name="description" content="Your daily IIITDM Jabalpur class schedule." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/schedule.css" />
+    <title>My Schedule | Campus Companion</title>
+  </head>
+  <body class="schedule-page">
+    <header class="schedule-header">
+      <a class="schedule-brand" href="dashboard.html">Campus Companion</a>
+
+      <nav class="schedule-actions" aria-label="Page actions">
+        <a href="announcements.html" aria-label="Announcements">🔔</a>
+        <a href="profile.html" aria-label="Profile">👤</a>
+      </nav>
+    </header>
+
+    <main class="schedule-main">
+      <section class="schedule-heading" aria-labelledby="pageHeading">
+        <div>
+          <h1 id="pageHeading">My Schedule</h1>
+          <button class="add-class-button" id="addClassButton" type="button" hidden>+ Add Class</button>
+        </div>
+        <p class="selected-day" id="selectedDay" aria-label="Selected day"></p>
+      </section>
+
+      <div class="schedule-layout">
+        <section class="daily-schedule" aria-label="Daily timetable">
+          <div class="timeline" id="scheduleList" aria-live="polite">
+            <p class="schedule-state">Loading schedule...</p>
+          </div>
+        </section>
+
+        <section class="next-class-section" aria-labelledby="nextClassHeading">
+          <h2 id="nextClassHeading">Next Class</h2>
+          <div class="next-class-card" id="nextClassContent" aria-live="polite">
+            <p class="next-class-state">Finding next class...</p>
+          </div>
+          <p class="navigation-message" id="navigationMessage" aria-live="polite"></p>
+        </section>
+      </div>
+      <p class="schedule-management-status" id="scheduleManagementStatus" aria-live="polite"></p>
+    </main>
+
+    <div class="schedule-modal" id="classModal" hidden>
+      <section class="class-dialog" role="dialog" aria-modal="true" aria-labelledby="classFormTitle">
+        <div class="class-dialog-heading">
+          <h2 id="classFormTitle">Add Class</h2>
+          <button class="class-dialog-close" id="closeClassForm" type="button" aria-label="Close">×</button>
+        </div>
+
+        <form id="classForm">
+          <input id="classId" type="hidden" />
+
+          <div class="class-field">
+            <label for="classSubject">Subject</label>
+            <input id="classSubject" type="text" required />
+          </div>
+          <div class="class-field">
+            <label for="classRoom">Room</label>
+            <input id="classRoom" type="text" />
+          </div>
+
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classDate">Date</label>
+              <input id="classDate" type="date" required />
+            </div>
+            <div class="class-field">
+              <label for="classType">Type</label>
+              <select id="classType" required>
+                <option value="class">class</option>
+                <option value="break">break</option>
+                <option value="free">free</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="class-field-row">
+            <div class="class-field">
+              <label for="classStartTime">Start Time</label>
+              <input id="classStartTime" type="time" required />
+            </div>
+            <div class="class-field">
+              <label for="classEndTime">End Time</label>
+              <input id="classEndTime" type="time" required />
+            </div>
+          </div>
+
+          <div class="class-field-row target-row">
+            <div class="class-field">
+              <label for="classSemester">Semester</label>
+              <select id="classSemester" required>
+                <option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option>
+                <option value="5">5</option><option value="6">6</option>
+                <option value="7">7</option><option value="8">8</option>
+              </select>
+            </div>
+            <div class="class-field">
+              <label for="classBranch">Branch</label>
+              <select id="classBranch" class="branch-select" required>
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="ME">ME</option>
+              </select>
+            </div>
+            <div class="class-field">
+              <label for="classSection">Section</label>
+              <select id="classSection" required>
+                <option value="ALL">ALL</option>
+                <option value="A">A</option><option value="B">B</option>
+                <option value="C">C</option><option value="D">D</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="class-form-actions">
+            <button class="class-save-button" type="submit">Save</button>
+            <button class="class-cancel-button" id="cancelClassForm" type="button">Cancel</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <footer class="schedule-footer">IIITDM Jabalpur Campus Companion</footer>
+
+    <script src="js/auth.js" defer></script>
+    <script src="js/schedule.js" defer></script>
+  </body>
+</html>
