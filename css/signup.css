@@ -18,6 +18,10 @@
   margin-bottom: 13px;
 }
 
+.student-detail[hidden] {
+  display: none;
+}
+
 .signup-page .auth-submit {
   margin-top: 4px;
 }
