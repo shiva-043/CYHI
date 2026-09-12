@@ -75,15 +75,15 @@ passwordInput.addEventListener('input', () => {
 confirmPasswordInput.addEventListener('input', updatePasswordMatchFeedback)
 
 function updateBatchFields() {
-  const needsBatchDetails = ['student', 'cr'].includes(roleInput.value)
+  const isProfessor = roleInput.value === 'professor'
 
   studentDetailGroups.forEach((group) => {
-    group.hidden = !needsBatchDetails
+    group.hidden = isProfessor
   })
 
   studentDetailInputs.forEach((input) => {
-    input.disabled = !needsBatchDetails
-    if (!needsBatchDetails) {
+    input.disabled = isProfessor
+    if (isProfessor) {
       input.value = ''
       clearError(input)
     }
@@ -124,7 +124,7 @@ signupForm.addEventListener('submit', async (event) => {
     userIdentityInput.value.trim(),
   )
   const roleIsValid = roleInput.value !== ''
-  const batchFieldsAreRequired = ['student', 'cr'].includes(roleInput.value)
+  const batchFieldsAreRequired = roleInput.value !== 'professor'
   const semesterIsValid = !batchFieldsAreRequired || semesterInput.value !== ''
   const branchIsValid = !batchFieldsAreRequired || branchInput.value !== ''
   const sectionIsValid = !batchFieldsAreRequired || sectionInput.value !== ''

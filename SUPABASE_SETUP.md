@@ -14,8 +14,6 @@ password to this repository.
 6. Create real sections and assign retained users to their batch.
 7. Add approved CR and Professor emails to `staff_signup_authorizations` before
    those users sign up.
-8. Run `supabase/migrations/role_scoped_management.sql` to apply the
-   non-destructive, section-scoped RLS update.
 
 The reset preserves `auth.users`. Existing Auth users receive a basic Student
 profile so they can still authenticate; staff roles and batch assignments must
@@ -46,16 +44,10 @@ themselves announcement and timetable management permissions.
 - `announcements` stores targeted Academic, Events, and Urgent information.
 - `timetable` stores class, break, and free entries for one section.
 
-RLS limits profiles to the signed-in user's own row, filters announcements and
-timetable entries by authorized section, and denies all Student writes. A Class
-Leader can manage only the `section_id` stored on their profile. A Professor can
-manage only sections listed for them in `section_professors`. An announcement
-targeting `ALL` sections is allowed only when that user manages every section
-in the selected semester and branch.
-
-Before testing management pages, verify that every Student and CR profile has a
-valid `section_id`, and that every Professor has the required
-`section_professors` assignment rows.
+RLS limits profiles to the signed-in user's own row, filters Student
+announcements and timetable entries by batch, denies Student writes, allows
+Class Leaders to manage content, and restricts Professor timetable writes to
+assigned sections.
 
 Dashboard events reuse `announcements` rows whose category is `Events`; there
 is no separate events table.
