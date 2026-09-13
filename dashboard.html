@@ -12,86 +12,222 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/sidebar.css" />
+    <link rel="stylesheet" href="css/dock.css" />
     <link rel="stylesheet" href="css/dashboard.css" />
     <title>Dashboard | Campus Companion</title>
   </head>
   <body class="dashboard-page">
-    <header class="dashboard-header">
-      <a class="dashboard-brand" href="index.html">Campus Companion</a>
+    <div class="app-layout">
+      
+      <!-- ============================================== -->
+      <!-- PERSISTENT LEFT SIDEBAR (Desktop >= 900px) -->
+      <!-- ============================================== -->
+      <aside class="portal-sidebar" aria-label="Portal Navigation">
+        <div class="sidebar-top-section">
+          <a class="sidebar-brand-link" href="dashboard.html" title="IIITDM Jabalpur Campus Companion">
+            <img src="assets/iiitdm-logo.png" alt="PDPM IIITDM Jabalpur Logo" class="sidebar-logo-img" />
+          </a>
 
-      <nav class="dashboard-actions" aria-label="Dashboard actions">
-        <a id="notificationButton" href="announcements.html" aria-label="Announcements">🔔</a>
-        <a href="profile.html" aria-label="Profile">👤</a>
-      </nav>
-    </header>
+          <nav class="sidebar-nav" aria-label="Main menu">
+            <a class="sidebar-nav-item active" href="dashboard.html" data-nav="dashboard">
+              <span class="sidebar-nav-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                <span>Dashboard</span>
+              </span>
+            </a>
 
-    <main class="dashboard-main">
-      <section class="welcome-section" aria-labelledby="greeting">
-        <h1 id="greeting">
-          <span id="greetingText">Welcome</span>,
-          <span id="userName">loading...</span> 👋
-        </h1>
-        <p>Here's what matters today.</p>
-      </section>
+            <a class="sidebar-nav-item" href="schedule.html" data-nav="schedule">
+              <span class="sidebar-nav-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2.2"/>
+                  <line x1="16" y1="2" x2="16" y2="6" stroke-width="2.2" stroke-linecap="round"/>
+                  <line x1="8" y1="2" x2="8" y2="6" stroke-width="2.2" stroke-linecap="round"/>
+                  <line x1="3" y1="10" x2="21" y2="10" stroke-width="2"/>
+                </svg>
+                <span>My Schedule</span>
+              </span>
+              <span class="sidebar-badge sidebar-calendar-date">26</span>
+            </a>
 
-      <nav class="dashboard-navigation" aria-label="Campus Companion pages">
-        <a class="navigation-card" href="announcements.html">
-          <span class="navigation-icon" aria-hidden="true">📢</span>
-          <span>
-            <strong>Announcements</strong>
-            <small>Read campus and academic updates</small>
-          </span>
-          <span class="navigation-arrow" aria-hidden="true">→</span>
-        </a>
+            <a class="sidebar-nav-item" href="announcements.html" data-nav="announcements">
+              <span class="sidebar-nav-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                <span>Announcements</span>
+              </span>
+              <span class="sidebar-dot"></span>
+            </a>
 
-        <a class="navigation-card" href="schedule.html">
-          <span class="navigation-icon" aria-hidden="true">📅</span>
-          <span>
-            <strong>My Schedule</strong>
-            <small>View today's timetable and next class</small>
-          </span>
-          <span class="navigation-arrow" aria-hidden="true">→</span>
-        </a>
+            <a class="sidebar-nav-item" href="profile.html" data-nav="profile">
+              <span class="sidebar-nav-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                <span>My Profile</span>
+              </span>
+            </a>
+          </nav>
 
-        <a class="navigation-card" href="profile.html">
-          <span class="navigation-icon" aria-hidden="true">👤</span>
-          <span>
-            <strong>Profile</strong>
-            <small>View your details and preferences</small>
-          </span>
-          <span class="navigation-arrow" aria-hidden="true">→</span>
-        </a>
-      </nav>
-
-      <div class="dashboard-grid">
-        <section class="dashboard-section next-class-section" aria-labelledby="nextClassHeading">
-          <h2 id="nextClassHeading"><span aria-hidden="true">📅</span> Your Next Class</h2>
-          <div class="next-class-card" id="nextClassContent" aria-live="polite">
-            <p class="state-message">Loading timetable...</p>
+          <div class="sidebar-quick-links">
+            <p class="sidebar-section-label">Campus Links</p>
+            <a class="sidebar-link" href="https://www.iiitdmj.ac.in" target="_blank" rel="noreferrer">🏛️ IIITDM Portal</a>
+            <a class="sidebar-link" href="schedule.html">📅 Timetable</a>
+            <a class="sidebar-link" href="announcements.html">📢 Notices</a>
           </div>
-        </section>
+        </div>
 
-        <section class="dashboard-section important-section" aria-labelledby="importantHeading">
-          <h2 id="importantHeading"><span aria-hidden="true">🔴</span> Important</h2>
-          <div class="item-list" id="importantContent" aria-live="polite">
-            <p class="state-message">Loading important updates...</p>
-          </div>
-        </section>
+        <div class="sidebar-user-footer">
+          <a class="sidebar-user-info" href="profile.html" title="View Profile">
+            <div class="sidebar-avatar" id="sidebarUserAvatar">👤</div>
+            <div class="sidebar-user-text">
+              <div class="sidebar-user-name" id="sidebarUserName">Student</div>
+              <div class="sidebar-user-sub" id="sidebarUserSub">IIITDM Jabalpur</div>
+            </div>
+          </a>
+          <button class="sidebar-logout-btn" id="sidebarLogoutBtn" type="button" title="Sign out" onclick="window.CampusAuth?.signOut()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
 
-        <section class="dashboard-section upcoming-section" aria-labelledby="upcomingHeading">
-          <h2 id="upcomingHeading"><span aria-hidden="true">🎉</span> Upcoming</h2>
-          <div class="item-list" id="eventsContent" aria-live="polite">
-            <p class="state-message">Loading upcoming events...</p>
+      <!-- ============================================== -->
+      <!-- MAIN VIEW WRAPPER -->
+      <!-- ============================================== -->
+      <div class="portal-main-wrapper">
+        
+        <!-- Top Header Bar -->
+        <header class="portal-top-header">
+          <div class="portal-search-bar">
+            <svg class="portal-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input class="portal-search-input" type="text" placeholder="Search classes, rooms, announcements... (⌘K)" aria-label="Search" />
           </div>
-        </section>
+
+          <div class="portal-header-meta">
+            <span class="portal-today-date" id="portalHeaderDate">Tuesday, October 26, 2026</span>
+            <a class="portal-header-icon-btn" id="notificationButton" href="announcements.html" title="Announcements" aria-label="Announcements">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+              <span class="portal-unread-badge"></span>
+            </a>
+            <a class="portal-header-icon-btn" href="profile.html" title="Profile" aria-label="Profile">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+            </a>
+          </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="dashboard-main">
+          
+          <!-- Welcome Section -->
+          <section class="welcome-section" aria-labelledby="greeting">
+            <h1 id="greeting">
+              <span id="greetingText">Dashboard - Welcome back</span>,
+              <span id="userName">loading...</span>!
+            </h1>
+            <p>Here's what matters today across IIITDM Jabalpur.</p>
+          </section>
+
+          <!-- Day Selector Tabs (Mon - Sat) -->
+          <nav class="dashboard-day-pills" aria-label="Quick Day Switcher">
+            <a href="schedule.html?day=Monday" class="day-pill" data-day="Monday">Mon</a>
+            <a href="schedule.html?day=Tuesday" class="day-pill" data-day="Tuesday">Tue</a>
+            <a href="schedule.html?day=Wednesday" class="day-pill" data-day="Wednesday">Wed</a>
+            <a href="schedule.html?day=Thursday" class="day-pill" data-day="Thursday">Thu</a>
+            <a href="schedule.html?day=Friday" class="day-pill" data-day="Friday">Fri</a>
+            <a href="schedule.html?day=Saturday" class="day-pill" data-day="Saturday">Sat</a>
+          </nav>
+
+          <!-- Dashboard Grid Layout -->
+          <div class="dashboard-grid">
+            
+            <!-- Next Class Hero Section -->
+            <section class="dashboard-section next-class-section" aria-labelledby="nextClassHeading">
+              <h2 id="nextClassHeading"><span aria-hidden="true">📅</span> Your Next Class</h2>
+              <div class="next-class-card" id="nextClassContent" aria-live="polite">
+                <p class="state-message">Loading timetable...</p>
+              </div>
+            </section>
+
+            <!-- Important Updates Section -->
+            <section class="dashboard-section important-section" aria-labelledby="importantHeading">
+              <h2 id="importantHeading"><span aria-hidden="true">🔴</span> Important Updates</h2>
+              <div class="item-list" id="importantContent" aria-live="polite">
+                <p class="state-message">Loading important updates...</p>
+              </div>
+            </section>
+
+            <!-- Upcoming Events Section -->
+            <section class="dashboard-section upcoming-section" aria-labelledby="upcomingHeading">
+              <h2 id="upcomingHeading"><span aria-hidden="true">🎉</span> Upcoming Events</h2>
+              <div class="item-list" id="eventsContent" aria-live="polite">
+                <p class="state-message">Loading upcoming events...</p>
+              </div>
+            </section>
+
+          </div>
+        </main>
+
+        <footer class="dashboard-footer">IIITDM Jabalpur Campus Companion</footer>
       </div>
-    </main>
 
-    <footer class="dashboard-footer">IIITDM Jabalpur Campus Companion</footer>
+    </div>
 
+    <!-- ============================================== -->
+    <!-- MOBILE SLIDEABLE DOCK (Apple & WhatsApp Style) -->
+    <!-- ============================================== -->
+    <div class="mobile-dock-wrapper" aria-label="Mobile Navigation Dock">
+      <nav class="mobile-dock" aria-label="Mobile Navigation">
+        <a class="dock-tab active" href="dashboard.html" data-nav="dashboard" title="Dashboard">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          <span class="dock-label">Home</span>
+        </a>
+
+        <a class="dock-tab" href="schedule.html" data-nav="schedule" title="My Schedule">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="3" stroke-width="2.2"/>
+            <line x1="16" y1="2" x2="16" y2="6" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="8" y1="2" x2="8" y2="6" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="3" y1="10" x2="21" y2="10" stroke-width="2"/>
+          </svg>
+          <span class="dock-calendar-date">26</span>
+          <span class="dock-label">Schedule</span>
+        </a>
+
+        <a class="dock-tab" href="announcements.html" data-nav="announcements" title="Announcements">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          <span class="dock-alert-dot"></span>
+          <span class="dock-label">Alerts</span>
+        </a>
+
+        <a class="dock-tab" href="profile.html" data-nav="profile" title="Profile">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span class="dock-label">Profile</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="js/supabase.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/dashboard.js" defer></script>
+    <script src="js/dock.js" defer></script>
   </body>
 </html>

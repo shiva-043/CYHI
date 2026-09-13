@@ -40,6 +40,22 @@ const pdfPreviewTableBody = document.querySelector('#pdfPreviewTableBody')
 const pdfImportButton = document.querySelector('#pdfImportButton')
 const pdfImportMessage = document.querySelector('#pdfImportMessage')
 
+// Timetable Diff & Incremental Update Elements
+const timetableDiffBar = document.querySelector('#timetableDiffBar')
+const chipModified = document.querySelector('#chipModified')
+const chipNew = document.querySelector('#chipNew')
+const chipUnchanged = document.querySelector('#chipUnchanged')
+const chipRemoved = document.querySelector('#chipRemoved')
+const filterAllDiffBtn = document.querySelector('#filterAllDiffBtn')
+const filterUpdatesDiffBtn = document.querySelector('#filterUpdatesDiffBtn')
+const filterUnchangedDiffBtn = document.querySelector('#filterUnchangedDiffBtn')
+const diffCountAll = document.querySelector('#diffCountAll')
+const diffCountUpdates = document.querySelector('#diffCountUpdates')
+const diffCountUnchanged = document.querySelector('#diffCountUnchanged')
+const pdfRemovedCleanupPanel = document.querySelector('#pdfRemovedCleanupPanel')
+const pdfRemoveObsoleteCheckbox = document.querySelector('#pdfRemoveObsoleteCheckbox')
+const pdfRemovedCount = document.querySelector('#pdfRemovedCount')
+
 // Configure PDF.js Worker
 if (typeof window !== 'undefined' && window.pdfjsLib) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -48,6 +64,9 @@ if (typeof window !== 'undefined' && window.pdfjsLib) {
 
 let parsedPdfClasses = []
 let currentPdfFile = null
+let currentExistingSectionClasses = []
+let currentDiffResult = { modified: [], newItems: [], unchanged: [], removed: [] }
+let activeDiffFilter = 'all' // 'all' | 'updates' | 'unchanged'
 
 const classFields = {
   id: document.querySelector('#classId'),
@@ -856,6 +875,15 @@ function closePdfModal() {
 function resetPdfModal() {
   currentPdfFile = null
   parsedPdfClasses = []
+  currentExistingSectionClasses = []
+  currentDiffResult = { modified: [], newItems: [], unchanged: [], removed: [] }
+  activeDiffFilter = 'all'
+  if (timetableDiffBar) timetableDiffBar.hidden = true
+  if (pdfRemovedCleanupPanel) pdfRemovedCleanupPanel.hidden = true
+  if (filterAllDiffBtn) {
+    [filterAllDiffBtn, filterUpdatesDiffBtn, filterUnchangedDiffBtn].forEach((b) => b?.classList.remove('active'))
+    filterAllDiffBtn.classList.add('active')
+  }
   if (pdfFileInput) pdfFileInput.value = ''
   if (pdfSelectedBar) pdfSelectedBar.hidden = true
   if (pdfParseStatus) pdfParseStatus.hidden = true
@@ -1477,17 +1505,14 @@ async function parsePdfFile(file) {
       pdfImportMessage.textContent =
         'No class entries matching your scope could be automatically detected from this PDF. You can add entries below or use "+ Add Single Class".'
       parsedPdfClasses = [createEmptyClassRow()]
-      renderPdfPreviewTable(parsedPdfClasses)
+      await runTimetableDiffAndRender()
       pdfPreviewSection.hidden = false
       return
     }
 
     parsedPdfClasses = deduplicateParsedClasses(allExtracted)
-    renderPdfPreviewTable(parsedPdfClasses)
+    await runTimetableDiffAndRender()
     pdfPreviewSection.hidden = false
-    pdfImportButton.disabled = false
-    pdfImportMessage.className = 'pdf-import-message success'
-    pdfImportMessage.textContent = `Successfully extracted ${parsedPdfClasses.length} timetable entries. Review and click "Import Classes".`
   } catch (error) {
     console.error('PDF parsing error:', error)
     pdfParseStatus.hidden = true
@@ -2018,17 +2043,14 @@ async function parseExcelFile(file) {
       pdfImportMessage.textContent =
         'No matching classes could be automatically extracted from this spreadsheet. You can add entries below or use "+ Add Single Class".'
       parsedPdfClasses = [createEmptyClassRow()]
-      renderPdfPreviewTable(parsedPdfClasses)
+      await runTimetableDiffAndRender()
       pdfPreviewSection.hidden = false
       return
     }
 
     parsedPdfClasses = deduplicateParsedClasses(allExtracted)
-    renderPdfPreviewTable(parsedPdfClasses)
+    await runTimetableDiffAndRender()
     pdfPreviewSection.hidden = false
-    pdfImportButton.disabled = false
-    pdfImportMessage.className = 'pdf-import-message success'
-    pdfImportMessage.textContent = `Successfully extracted ${parsedPdfClasses.length} timetable entries from Excel. Review and click "Import Classes".`
   } catch (error) {
     console.error('Excel parsing error:', error)
     pdfParseStatus.hidden = true
@@ -2086,12 +2108,17 @@ function createEmptyClassRow() {
     room: '',
     batch: '',
     type: 'class',
+    status: 'NEW',
+    changes: [],
+    existingId: null,
   }
 }
 
 function addPreviewRow() {
-  parsedPdfClasses.push(createEmptyClassRow())
-  renderPdfPreviewTable(parsedPdfClasses)
+  const newRow = createEmptyClassRow()
+  parsedPdfClasses.push(newRow)
+  recomputeDiffLive()
+  renderPdfPreviewTable()
   const lastRow = pdfPreviewTableBody.lastElementChild
   if (lastRow) {
     const codeInput = lastRow.querySelector('input[type="text"]')
@@ -2100,42 +2127,266 @@ function addPreviewRow() {
 }
 
 function setAllPreviewSelection(isSelected) {
-  parsedPdfClasses.forEach((item) => {
+  const visible = getFilteredParsedClasses()
+  visible.forEach((item) => {
     item.selected = isSelected
   })
-  renderPdfPreviewTable(parsedPdfClasses)
+  renderPdfPreviewTable()
 }
 
-function updatePdfImportButtonState() {
-  const selectedItems = parsedPdfClasses.filter((item) => item.selected !== false)
-  const count = selectedItems.length
-  pdfImportButton.disabled = count === 0
-  pdfImportButton.textContent = `Import ${count} Selected Class${count === 1 ? '' : 'es'}`
+// Normalized helpers for slot comparison
+function normalizeSlotDay(day) {
+  return String(day || '').trim().toLowerCase()
+}
 
-  if (pdfMasterCheckbox) {
-    pdfMasterCheckbox.checked = parsedPdfClasses.length > 0 && count === parsedPdfClasses.length
-    pdfMasterCheckbox.indeterminate = count > 0 && count < parsedPdfClasses.length
+function normalizeSlotTime(timeStr) {
+  const parts = String(timeStr || '').trim().split(':')
+  if (parts.length >= 2) {
+    const h = parts[0].padStart(2, '0')
+    const m = parts[1].padStart(2, '0')
+    return `${h}:${m}:00`
+  }
+  return '00:00:00'
+}
+
+function normalizeSlotBatch(b) {
+  const clean = String(b || '').trim().toUpperCase()
+  if (!clean || clean === 'ALL' || clean === 'NONE') return ''
+  return clean
+}
+
+function normalizeSlotStr(s) {
+  return String(s || '').trim()
+}
+
+async function fetchExistingSectionTimetable(sectionId) {
+  if (!sectionId || !window.supabaseClient) return []
+  try {
+    const { data, error } = await window.supabaseClient
+      .from('timetable')
+      .select('id, section_id, day_of_week, start_time, end_time, course_code, course_name, subject, faculty, room, batch, type')
+      .eq('section_id', sectionId)
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.warn('Could not fetch existing timetable for comparison:', err)
+    return []
   }
 }
 
-function renderPdfPreviewTable(classes) {
-  pdfPreviewTableBody.replaceChildren()
-  pdfPreviewCount.textContent = `${classes.length} class${classes.length === 1 ? '' : 'es'} detected`
+function computeTimetableDiff(extractedList, existingList) {
+  // Index existing entries by unique slot: day|startTime|batch
+  const existingMap = new Map()
+  const matchedExistingIds = new Set()
 
-  if (classes.length === 0) {
+  existingList.forEach((row) => {
+    const key = `${normalizeSlotDay(row.day_of_week)}|${normalizeSlotTime(row.start_time)}|${normalizeSlotBatch(row.batch)}`
+    if (!existingMap.has(key)) {
+      existingMap.set(key, [])
+    }
+    existingMap.get(key).push(row)
+  })
+
+  const modified = []
+  const newItems = []
+  const unchanged = []
+
+  extractedList.forEach((item) => {
+    const itemKey = `${normalizeSlotDay(item.day)}|${normalizeSlotTime(item.start_time)}|${normalizeSlotBatch(item.batch)}`
+    const candidates = existingMap.get(itemKey) || []
+
+    let existingMatch = null
+    for (const cand of candidates) {
+      if (!matchedExistingIds.has(cand.id)) {
+        existingMatch = cand
+        break
+      }
+    }
+
+    if (existingMatch) {
+      matchedExistingIds.add(existingMatch.id)
+      item.existingId = existingMatch.id
+
+      // Check fields for differences
+      const itemCode = normalizeSlotStr(item.course_code)
+      const existCode = normalizeSlotStr(existingMatch.course_code || existingMatch.subject)
+      const codeDiff = itemCode.toLowerCase() !== existCode.toLowerCase()
+
+      const itemRoom = normalizeSlotStr(item.room)
+      const existRoom = normalizeSlotStr(existingMatch.room)
+      const roomDiff = itemRoom.toLowerCase() !== existRoom.toLowerCase()
+
+      const itemFaculty = normalizeSlotStr(item.faculty)
+      const existFaculty = normalizeSlotStr(existingMatch.faculty)
+      const facultyDiff = itemFaculty.toLowerCase() !== existFaculty.toLowerCase()
+
+      const itemEnd = normalizeSlotTime(item.end_time)
+      const existEnd = normalizeSlotTime(existingMatch.end_time)
+      const endDiff = itemEnd !== existEnd
+
+      const itemType = normalizeSlotStr(item.type || 'class').toLowerCase()
+      const existType = normalizeSlotStr(existingMatch.type || 'class').toLowerCase()
+      const typeDiff = itemType !== existType
+
+      const itemName = normalizeSlotStr(item.course_name)
+      const existName = normalizeSlotStr(existingMatch.course_name)
+      const nameDiff = itemName && existName && itemName.toLowerCase() !== existName.toLowerCase()
+
+      const changes = []
+      if (codeDiff) changes.push({ field: 'code', label: 'Course Code', from: existCode || 'None', to: itemCode })
+      if (roomDiff) changes.push({ field: 'room', label: 'Room', from: existRoom || 'TBA', to: itemRoom || 'TBA' })
+      if (facultyDiff) changes.push({ field: 'faculty', label: 'Faculty', from: existFaculty || 'TBA', to: itemFaculty || 'TBA' })
+      if (endDiff) changes.push({ field: 'endTime', label: 'End Time', from: existEnd.slice(0, 5), to: itemEnd.slice(0, 5) })
+      if (typeDiff) changes.push({ field: 'type', label: 'Type', from: existType, to: itemType })
+      if (nameDiff) changes.push({ field: 'name', label: 'Name', from: existName, to: itemName })
+
+      if (changes.length > 0) {
+        item.status = 'MODIFIED'
+        item.changes = changes
+        modified.push(item)
+      } else {
+        item.status = 'UNCHANGED'
+        item.changes = []
+        unchanged.push(item)
+      }
+    } else {
+      item.existingId = null
+      item.status = 'NEW'
+      item.changes = []
+      newItems.push(item)
+    }
+  })
+
+  // Determine obsolete classes previously in this section that were removed or moved
+  const removed = existingList.filter((row) => !matchedExistingIds.has(row.id))
+
+  return { modified, newItems, unchanged, removed }
+}
+
+function recomputeDiffLive() {
+  currentDiffResult = computeTimetableDiff(parsedPdfClasses, currentExistingSectionClasses)
+  renderTimetableDiffSummary()
+  updatePdfImportButtonState()
+}
+
+async function runTimetableDiffAndRender() {
+  const targetSectionId = pdfSection?.value
+  if (targetSectionId) {
+    currentExistingSectionClasses = await fetchExistingSectionTimetable(targetSectionId)
+  } else {
+    currentExistingSectionClasses = []
+  }
+
+  currentDiffResult = computeTimetableDiff(parsedPdfClasses, currentExistingSectionClasses)
+  renderTimetableDiffSummary()
+  renderPdfPreviewTable()
+  updatePdfImportButtonState()
+}
+
+function renderTimetableDiffSummary() {
+  if (!timetableDiffBar) return
+
+  const totalDetected = parsedPdfClasses.length
+  const modCount = currentDiffResult.modified.length
+  const newCount = currentDiffResult.newItems.length
+  const unchCount = currentDiffResult.unchanged.length
+  const remCount = currentDiffResult.removed.length
+
+  if (totalDetected === 0) {
+    timetableDiffBar.hidden = true
+    if (pdfRemovedCleanupPanel) pdfRemovedCleanupPanel.hidden = true
+    return
+  }
+
+  timetableDiffBar.hidden = false
+  if (chipModified) chipModified.textContent = `✏️ ${modCount} Modified`
+  if (chipNew) chipNew.textContent = `✨ ${newCount} New`
+  if (chipUnchanged) chipUnchanged.textContent = `✓ ${unchCount} Unchanged`
+
+  if (chipRemoved) {
+    if (remCount > 0) {
+      chipRemoved.hidden = false
+      chipRemoved.textContent = `🗑️ ${remCount} Removed`
+    } else {
+      chipRemoved.hidden = true
+    }
+  }
+
+  if (pdfRemovedCleanupPanel && pdfRemovedCount) {
+    pdfRemovedCleanupPanel.hidden = remCount === 0
+    pdfRemovedCount.textContent = remCount
+  }
+
+  if (diffCountAll) diffCountAll.textContent = totalDetected
+  if (diffCountUpdates) diffCountUpdates.textContent = modCount + newCount
+  if (diffCountUnchanged) diffCountUnchanged.textContent = unchCount
+}
+
+function getFilteredParsedClasses() {
+  if (activeDiffFilter === 'updates') {
+    return parsedPdfClasses.filter((item) => item.status === 'MODIFIED' || item.status === 'NEW')
+  }
+  if (activeDiffFilter === 'unchanged') {
+    return parsedPdfClasses.filter((item) => item.status === 'UNCHANGED')
+  }
+  return parsedPdfClasses
+}
+
+function updatePdfImportButtonState() {
+  const selectedModified = currentDiffResult.modified.filter((item) => item.selected !== false)
+  const selectedNew = currentDiffResult.newItems.filter((item) => item.selected !== false)
+  const shouldCleanObsolete = pdfRemoveObsoleteCheckbox && pdfRemoveObsoleteCheckbox.checked
+  const selectedRemoved = shouldCleanObsolete ? currentDiffResult.removed : []
+
+  const updateCount = selectedModified.length + selectedNew.length
+  const totalChanges = updateCount + selectedRemoved.length
+
+  if (currentExistingSectionClasses.length === 0) {
+    // Initial upload into an empty section
+    const totalSelected = parsedPdfClasses.filter((item) => item.selected !== false).length
+    pdfImportButton.disabled = totalSelected === 0
+    pdfImportButton.textContent = `Import ${totalSelected} Class${totalSelected === 1 ? '' : 'es'}`
+  } else if (updateCount > 0) {
+    pdfImportButton.disabled = false
+    const details = []
+    if (selectedModified.length > 0) details.push(`${selectedModified.length} Modified`)
+    if (selectedNew.length > 0) details.push(`${selectedNew.length} New`)
+    pdfImportButton.textContent = `Apply ${updateCount} Update${updateCount === 1 ? '' : 's'} (${details.join(', ')})`
+  } else if (selectedRemoved.length > 0) {
+    pdfImportButton.disabled = false
+    pdfImportButton.textContent = `Remove ${selectedRemoved.length} Cancelled Class${selectedRemoved.length === 1 ? '' : 'es'}`
+  } else {
+    // Entire schedule is identical, no writes needed
+    pdfImportButton.disabled = true
+    pdfImportButton.textContent = 'Timetable is Up to Date (No Changes)'
+  }
+
+  if (pdfMasterCheckbox) {
+    const visible = getFilteredParsedClasses()
+    const selectedCount = visible.filter((item) => item.selected !== false).length
+    pdfMasterCheckbox.checked = visible.length > 0 && selectedCount === visible.length
+    pdfMasterCheckbox.indeterminate = selectedCount > 0 && selectedCount < visible.length
+  }
+}
+
+function renderPdfPreviewTable() {
+  pdfPreviewTableBody.replaceChildren()
+  const displayItems = getFilteredParsedClasses()
+  pdfPreviewCount.textContent = `${displayItems.length} of ${parsedPdfClasses.length} class${parsedPdfClasses.length === 1 ? '' : 'es'} shown`
+
+  if (displayItems.length === 0) {
     const emptyRow = document.createElement('tr')
-    emptyRow.innerHTML = `<td colspan="11" style="text-align:center; padding: 20px; color: var(--muted);">No classes to preview. Click "+ Add Row" to add entries manually.</td>`
+    emptyRow.innerHTML = `<td colspan="12" style="text-align:center; padding: 20px; color: var(--muted);">No classes matching current filter. Switch to "All" or click "+ Add Row".</td>`
     pdfPreviewTableBody.append(emptyRow)
     updatePdfImportButtonState()
     return
   }
 
-  classes.forEach((item, index) => {
+  displayItems.forEach((item) => {
     const tr = document.createElement('tr')
-    tr.dataset.index = index
     if (!item.selected) tr.classList.add('row-unselected')
 
-    // Checkbox
+    // 1. Checkbox
     const tdCheck = document.createElement('td')
     tdCheck.style.textAlign = 'center'
     const check = document.createElement('input')
@@ -2150,102 +2401,162 @@ function renderPdfPreviewTable(classes) {
     tdCheck.append(check)
     tr.append(tdCheck)
 
-    // Day
+    // 2. Status Badge with Diff Details
+    const tdStatus = document.createElement('td')
+    tdStatus.style.textAlign = 'center'
+    const statusBadge = document.createElement('span')
+    if (item.status === 'MODIFIED') {
+      statusBadge.className = 'diff-status-badge badge-modified'
+      statusBadge.textContent = '✏️ Update'
+      const changeText = (item.changes || []).map((c) => `${c.label}: ${c.from} ➔ ${c.to}`).join('\n')
+      statusBadge.title = changeText || 'Class details updated'
+    } else if (item.status === 'NEW') {
+      statusBadge.className = 'diff-status-badge badge-new'
+      statusBadge.textContent = '✨ New'
+      statusBadge.title = 'New class added to schedule'
+    } else {
+      statusBadge.className = 'diff-status-badge badge-unchanged'
+      statusBadge.textContent = '✓ Kept'
+      statusBadge.title = 'Already up to date in database (will be preserved intact)'
+    }
+    tdStatus.append(statusBadge)
+    tr.append(tdStatus)
+
+    // 3. Day
     const tdDay = document.createElement('td')
     const selectDay = document.createElement('select')
     WEEKDAYS.forEach((d) => selectDay.add(new Option(d, d)))
     selectDay.value = item.day || 'Monday'
     selectDay.addEventListener('change', (e) => {
       item.day = e.target.value
+      recomputeDiffLive()
+      renderPdfPreviewTable()
     })
     tdDay.append(selectDay)
     tr.append(tdDay)
 
-    // Start Time
+    // 4. Start Time
     const tdStart = document.createElement('td')
     const inputStart = document.createElement('input')
     inputStart.type = 'time'
     inputStart.value = String(item.start_time || '10:00:00').slice(0, 5)
     inputStart.addEventListener('change', (e) => {
       item.start_time = `${e.target.value}:00`.slice(0, 8)
+      recomputeDiffLive()
+      renderPdfPreviewTable()
     })
     tdStart.append(inputStart)
     tr.append(tdStart)
 
-    // End Time
+    // 5. End Time
     const tdEnd = document.createElement('td')
     const inputEnd = document.createElement('input')
     inputEnd.type = 'time'
     inputEnd.value = String(item.end_time || '10:55:00').slice(0, 5)
+    if (item.changes?.some((c) => c.field === 'endTime')) {
+      inputEnd.classList.add('cell-changed')
+      const oldVal = item.changes.find((c) => c.field === 'endTime')?.from
+      inputEnd.title = `Updated from ${oldVal}`
+    }
     inputEnd.addEventListener('change', (e) => {
       item.end_time = `${e.target.value}:00`.slice(0, 8)
+      recomputeDiffLive()
+      renderPdfPreviewTable()
     })
     tdEnd.append(inputEnd)
     tr.append(tdEnd)
 
-    // Course Code
+    // 6. Course Code
     const tdCode = document.createElement('td')
     const inputCode = document.createElement('input')
     inputCode.type = 'text'
     inputCode.value = item.course_code || ''
     inputCode.placeholder = 'e.g. CS2003'
     inputCode.required = true
+    if (item.changes?.some((c) => c.field === 'code')) {
+      inputCode.classList.add('cell-changed')
+      const oldVal = item.changes.find((c) => c.field === 'code')?.from
+      inputCode.title = `Updated from ${oldVal}`
+    }
     inputCode.addEventListener('input', (e) => {
       item.course_code = e.target.value.trim()
+      recomputeDiffLive()
     })
     tdCode.append(inputCode)
     tr.append(tdCode)
 
-    // Course Name
+    // 7. Course Name
     const tdName = document.createElement('td')
     const inputName = document.createElement('input')
     inputName.type = 'text'
     inputName.value = item.course_name || ''
     inputName.placeholder = 'e.g. Data Structures'
+    if (item.changes?.some((c) => c.field === 'name')) {
+      inputName.classList.add('cell-changed')
+      const oldVal = item.changes.find((c) => c.field === 'name')?.from
+      inputName.title = `Updated from ${oldVal}`
+    }
     inputName.addEventListener('input', (e) => {
       item.course_name = e.target.value.trim()
+      recomputeDiffLive()
     })
     tdName.append(inputName)
     tr.append(tdName)
 
-    // Type
+    // 8. Type
     const tdType = document.createElement('td')
     const selectType = document.createElement('select')
     selectType.add(new Option('Lecture', 'class'))
     selectType.add(new Option('Lab', 'lab'))
     selectType.add(new Option('Tutorial', 'tut'))
     selectType.value = ['class', 'lab', 'tut'].includes(item.type) ? item.type : 'class'
+    if (item.changes?.some((c) => c.field === 'type')) {
+      selectType.classList.add('cell-changed')
+    }
     selectType.addEventListener('change', (e) => {
       item.type = e.target.value
+      recomputeDiffLive()
     })
     tdType.append(selectType)
     tr.append(tdType)
 
-    // Faculty
+    // 9. Faculty
     const tdFac = document.createElement('td')
     const inputFac = document.createElement('input')
     inputFac.type = 'text'
     inputFac.value = item.faculty || ''
     inputFac.placeholder = 'e.g. PK'
+    if (item.changes?.some((c) => c.field === 'faculty')) {
+      inputFac.classList.add('cell-changed')
+      const oldVal = item.changes.find((c) => c.field === 'faculty')?.from
+      inputFac.title = `Updated from ${oldVal}`
+    }
     inputFac.addEventListener('input', (e) => {
       item.faculty = e.target.value.trim()
+      recomputeDiffLive()
     })
     tdFac.append(inputFac)
     tr.append(tdFac)
 
-    // Room
+    // 10. Room
     const tdRoom = document.createElement('td')
     const inputRoom = document.createElement('input')
     inputRoom.type = 'text'
     inputRoom.value = item.room || ''
     inputRoom.placeholder = 'e.g. L104'
+    if (item.changes?.some((c) => c.field === 'room')) {
+      inputRoom.classList.add('cell-changed')
+      const oldVal = item.changes.find((c) => c.field === 'room')?.from
+      inputRoom.title = `Updated from ${oldVal}`
+    }
     inputRoom.addEventListener('input', (e) => {
       item.room = e.target.value.trim()
+      recomputeDiffLive()
     })
     tdRoom.append(inputRoom)
     tr.append(tdRoom)
 
-    // Batch
+    // 11. Batch
     const tdBatch = document.createElement('td')
     const selectBatch = document.createElement('select')
     selectBatch.add(new Option('All', ''))
@@ -2255,20 +2566,26 @@ function renderPdfPreviewTable(classes) {
     selectBatch.value = item.batch || ''
     selectBatch.addEventListener('change', (e) => {
       item.batch = e.target.value
+      recomputeDiffLive()
+      renderPdfPreviewTable()
     })
     tdBatch.append(selectBatch)
     tr.append(tdBatch)
 
-    // Remove button
+    // 12. Remove row button
     const tdDel = document.createElement('td')
     const delBtn = document.createElement('button')
     delBtn.type = 'button'
     delBtn.className = 'pdf-row-remove-btn'
-    delBtn.title = 'Remove this row'
+    delBtn.title = 'Remove this row from upload'
     delBtn.textContent = '✕'
     delBtn.addEventListener('click', () => {
-      parsedPdfClasses.splice(index, 1)
-      renderPdfPreviewTable(parsedPdfClasses)
+      const idx = parsedPdfClasses.indexOf(item)
+      if (idx !== -1) {
+        parsedPdfClasses.splice(idx, 1)
+        recomputeDiffLive()
+        renderPdfPreviewTable()
+      }
     })
     tdDel.append(delBtn)
     tr.append(tdDel)
@@ -2280,9 +2597,6 @@ function renderPdfPreviewTable(classes) {
 }
 
 async function importParsedClasses() {
-  const selectedItems = parsedPdfClasses.filter((item) => item.selected !== false)
-  if (selectedItems.length === 0) return
-
   const targetSectionId = pdfSection.value
   if (!targetSectionId) {
     pdfImportMessage.className = 'pdf-import-message error'
@@ -2297,7 +2611,27 @@ async function importParsedClasses() {
     return
   }
 
-  for (const item of selectedItems) {
+  // Fetch current database entries to guarantee freshly aligned diff
+  currentExistingSectionClasses = await fetchExistingSectionTimetable(targetSectionId)
+  currentDiffResult = computeTimetableDiff(parsedPdfClasses, currentExistingSectionClasses)
+
+  const selectedModified = currentDiffResult.modified.filter((item) => item.selected !== false)
+  const selectedNew = currentDiffResult.newItems.filter((item) => item.selected !== false)
+  const shouldCleanObsolete = pdfRemoveObsoleteCheckbox && pdfRemoveObsoleteCheckbox.checked
+  const selectedRemoved = shouldCleanObsolete ? currentDiffResult.removed : []
+
+  const updateCount = selectedModified.length + selectedNew.length
+  const totalActions = updateCount + selectedRemoved.length
+
+  if (totalActions === 0) {
+    pdfImportMessage.className = 'pdf-import-message'
+    pdfImportMessage.textContent = 'All selected classes are already up to date. No database updates needed.'
+    return
+  }
+
+  // Validate items to be saved
+  const itemsToValidate = [...selectedModified, ...selectedNew]
+  for (const item of itemsToValidate) {
     if (!item.course_code) {
       pdfImportMessage.className = 'pdf-import-message error'
       pdfImportMessage.textContent = `Each selected class must have a Course Code. Please check entries.`
@@ -2311,57 +2645,115 @@ async function importParsedClasses() {
   }
 
   pdfImportButton.disabled = true
-  pdfImportButton.textContent = 'Importing...'
+  pdfImportButton.textContent = 'Applying updates...'
   pdfImportMessage.className = 'pdf-import-message'
-  pdfImportMessage.textContent = `Importing ${selectedItems.length} classes into Supabase...`
+  pdfImportMessage.textContent = `Applying ${totalActions} updates into Supabase (${selectedModified.length} modified, ${selectedNew.length} new)...`
 
   try {
-    const payload = selectedItems.map((item) => ({
-      section_id: targetSectionId,
-      day_of_week: item.day,
-      start_time: item.start_time,
-      end_time: item.end_time,
-      course_code: item.course_code,
-      course_name: item.course_name || item.course_code,
-      subject: item.course_code,
-      faculty: item.faculty || null,
-      room: item.room || null,
-      batch: item.batch || null,
-      type: item.type || 'class',
-    }))
+    // 1. UPDATE only modified classes (by existing row ID)
+    for (const item of selectedModified) {
+      const updatePayload = {
+        course_code: item.course_code,
+        course_name: item.course_name || item.course_code,
+        subject: item.course_code,
+        faculty: item.faculty || null,
+        room: item.room || null,
+        end_time: item.end_time,
+        type: item.type || 'class',
+        batch: item.batch || null,
+        updated_at: new Date().toISOString(),
+      }
 
-    // Batch insert into timetable table
-    let { error } = await window.supabaseClient
-      .from('timetable')
-      .insert(payload)
+      let { error } = await window.supabaseClient
+        .from('timetable')
+        .update(updatePayload)
+        .eq('id', item.existingId)
 
-    // Fallback for legacy DB schema if extended columns (course_code, batch) are not yet in table
-    if (error && (error.code === '42703' || String(error.message || '').includes('course_code') || String(error.message || '').includes('batch'))) {
-      const legacyPayload = payload.map((p) => ({
-        section_id: p.section_id,
-        day_of_week: p.day_of_week,
-        start_time: p.start_time,
-        end_time: p.end_time,
-        subject: p.subject,
-        room: p.room,
-        type: ['break', 'free'].includes(p.type) ? p.type : 'class',
-      }))
-      const legacyRes = await window.supabaseClient.from('timetable').insert(legacyPayload)
-      error = legacyRes.error
+      // Fallback for legacy database schema
+      if (error && (error.code === '42703' || String(error.message || '').includes('course_code') || String(error.message || '').includes('batch'))) {
+        const legacyUpdate = {
+          subject: item.course_code,
+          room: item.room,
+          end_time: item.end_time,
+          type: ['break', 'free'].includes(item.type) ? item.type : 'class',
+        }
+        const legacyRes = await window.supabaseClient.from('timetable').update(legacyUpdate).eq('id', item.existingId)
+        error = legacyRes.error
+      }
+
+      if (error) throw error
     }
 
-    if (error) throw error
+    // 2. INSERT only new classes
+    if (selectedNew.length > 0) {
+      const insertPayload = selectedNew.map((item) => ({
+        section_id: targetSectionId,
+        day_of_week: item.day,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        course_code: item.course_code,
+        course_name: item.course_name || item.course_code,
+        subject: item.course_code,
+        faculty: item.faculty || null,
+        room: item.room || null,
+        batch: item.batch || null,
+        type: item.type || 'class',
+      }))
+
+      let { error } = await window.supabaseClient
+        .from('timetable')
+        .insert(insertPayload)
+
+      if (error && (error.code === '42703' || String(error.message || '').includes('course_code') || String(error.message || '').includes('batch'))) {
+        const legacyInsert = insertPayload.map((p) => ({
+          section_id: p.section_id,
+          day_of_week: p.day_of_week,
+          start_time: p.start_time,
+          end_time: p.end_time,
+          subject: p.subject,
+          room: p.room,
+          type: ['break', 'free'].includes(p.type) ? p.type : 'class',
+        }))
+        const legacyRes = await window.supabaseClient.from('timetable').insert(legacyInsert)
+        error = legacyRes.error
+      }
+
+      if (error) throw error
+    }
+
+    // 3. DELETE obsolete / cancelled classes if cleanup is enabled
+    if (selectedRemoved.length > 0) {
+      const idsToDelete = selectedRemoved.map((r) => r.id)
+      const { error: delError } = await window.supabaseClient
+        .from('timetable')
+        .delete()
+        .in('id', idsToDelete)
+
+      if (delError) {
+        console.warn('Could not clean up obsolete classes:', delError)
+      }
+    }
+
+    // 4. UNCHANGED classes: Left 100% intact! Zero writes, zero row locks.
 
     const selectedSec = availableSections.find((s) => String(s.id) === String(targetSectionId))
     const secName = selectedSec ? `${selectedSec.branch} Sem ${selectedSec.semester} ${selectedSec.name}` : 'section'
 
+    const changeParts = []
+    if (selectedModified.length > 0) changeParts.push(`${selectedModified.length} modified`)
+    if (selectedNew.length > 0) changeParts.push(`${selectedNew.length} added`)
+    if (selectedRemoved.length > 0) changeParts.push(`${selectedRemoved.length} obsolete removed`)
+    const summaryText = changeParts.join(', ') || 'updates applied'
+    const unchangedCount = currentDiffResult.unchanged.length
+    const unchangedText = unchangedCount > 0 ? ` (${unchangedCount} unchanged classes kept intact)` : ''
+
     closePdfModal()
-    scheduleManagementStatus.textContent = `Successfully imported ${payload.length} classes for ${secName}!`
+    scheduleManagementStatus.textContent = `Successfully updated timetable for ${secName}: ${summaryText}${unchangedText}!`
     await loadSchedule()
   } catch (err) {
     console.error('Import timetable error:', err)
     pdfImportButton.disabled = false
-    pdfImportButton.textContent = 'Import Classes'
+    updatePdfImportButtonState()
     pdfImportMessage.className = 'pdf-import-message error'
     pdfImportMessage.textContent = isPermissionError(err)
       ? 'Permission denied: You do not have authorization to modify this section.'
@@ -2384,6 +2776,31 @@ function setupPdfEventListeners() {
   }
   if (pdfSemester) {
     pdfSemester.addEventListener('change', refreshPdfSectionOptions)
+  }
+  if (pdfSection) {
+    pdfSection.addEventListener('change', async () => {
+      if (parsedPdfClasses.length > 0) {
+        await runTimetableDiffAndRender()
+      }
+    })
+  }
+
+  // Diff Filter Tabs
+  const diffTabs = [filterAllDiffBtn, filterUpdatesDiffBtn, filterUnchangedDiffBtn]
+  diffTabs.forEach((btn) => {
+    if (!btn) return
+    btn.addEventListener('click', () => {
+      diffTabs.forEach((t) => t?.classList.remove('active'))
+      btn.classList.add('active')
+      activeDiffFilter = btn.dataset.diffFilter || 'all'
+      renderPdfPreviewTable()
+    })
+  })
+
+  if (pdfRemoveObsoleteCheckbox) {
+    pdfRemoveObsoleteCheckbox.addEventListener('change', () => {
+      updatePdfImportButtonState()
+    })
   }
   if (pdfDropzone) {
     pdfDropzone.addEventListener('click', () => {
