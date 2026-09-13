@@ -27,6 +27,7 @@ let selectedCategory = 'All'
 let announcementsLoadFailed = false
 let canManageAnnouncements = false
 let availableAnnouncementSections = []
+let currentUser = null
 
 function isPermissionError(error) {
   return error?.code === '42501' || String(error?.message || '').toLowerCase().includes('policy')
@@ -201,14 +202,23 @@ async function saveAnnouncement(event) {
   managementStatus.textContent = 'Saving announcement...'
 
   try {
+    if (!currentUser) {
+      currentUser = await window.CampusAuth.getAuthenticatedUser()
+    }
+
+    const payload = getAnnouncementPayload()
+    if (!isEditing) {
+      payload.created_by = currentUser?.id || (await window.supabaseClient.auth.getUser()).data?.user?.id
+    }
+
     const query = isEditing
       ? window.supabaseClient
         .from('announcements')
-        .update(getAnnouncementPayload())
+        .update(payload)
         .eq('id', announcementId)
       : window.supabaseClient
         .from('announcements')
-        .insert(getAnnouncementPayload())
+        .insert(payload)
     const { error } = await query
     if (error) throw error
 
@@ -219,9 +229,16 @@ async function saveAnnouncement(event) {
     await loadAnnouncements()
   } catch (error) {
     console.error('Unable to save announcement:', error)
-    managementStatus.textContent = isPermissionError(error)
-      ? 'You do not have permission to perform this action.'
-      : 'Unable to save the announcement. Please try again.'
+    const detailMsg = error?.message || error?.details || error?.hint || ''
+    if (isPermissionError(error)) {
+      managementStatus.textContent = detailMsg
+        ? `Permission error: ${detailMsg}`
+        : 'You do not have permission to perform this action. Only CRs and Professors can manage announcements.'
+    } else {
+      managementStatus.textContent = detailMsg
+        ? `Unable to save: ${detailMsg}`
+        : 'Unable to save the announcement. Please try again.'
+    }
   }
 }
 
@@ -242,9 +259,10 @@ async function deleteAnnouncement(announcement) {
     await loadAnnouncements()
   } catch (error) {
     console.error('Unable to delete announcement:', error)
+    const detailMsg = error?.message || error?.details || error?.hint || ''
     managementStatus.textContent = isPermissionError(error)
-      ? 'You do not have permission to perform this action.'
-      : 'Unable to delete the announcement. Please try again.'
+      ? (detailMsg ? `Permission error: ${detailMsg}` : 'You do not have permission to perform this action.')
+      : (detailMsg ? `Unable to delete: ${detailMsg}` : 'Unable to delete the announcement. Please try again.')
   }
 }
 
@@ -460,6 +478,7 @@ function refreshAnnouncementSections() {
 async function loadUserRole() {
   try {
     const user = await window.CampusAuth.getAuthenticatedUser()
+    currentUser = user
     canManageAnnouncements = window.CampusAuth.canManageContent(user)
     addAnnouncementButton.hidden = !canManageAnnouncements
 

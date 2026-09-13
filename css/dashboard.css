@@ -1,380 +1,264 @@
-/* Dashboard page and header */
+/* ==========================================================
+   IIITDM Jabalpur Campus Companion - Dashboard CSS
+   Classic, Light & Elegant Design
+   ========================================================== */
+
 .dashboard-page {
   min-height: 100vh;
   color: var(--navy);
-  background: #f5f6f8;
+  background: var(--cream);
 }
 
-.dashboard-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  min-height: 76px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px clamp(22px, 7vw, 108px);
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(11, 33, 70, 0.09);
-  backdrop-filter: blur(14px);
-}
-
-.dashboard-brand {
-  color: var(--navy);
-  font-family: 'Manrope', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-decoration: none;
-}
-
-.dashboard-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.dashboard-actions button,
-.dashboard-actions a {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  place-items: center;
-  background: #f2f4f7;
-  border: 1px solid #e2e6ec;
-  border-radius: 50%;
-  font-size: 18px;
-  text-decoration: none;
-  transition: transform 160ms ease, background 160ms ease;
-}
-
-.dashboard-actions button:hover,
-.dashboard-actions button:focus-visible,
-.dashboard-actions a:hover,
-.dashboard-actions a:focus-visible {
-  transform: translateY(-2px);
-  background: #e7ebf1;
-}
-
-/* Main dashboard layout */
+/* Main Dashboard Workspace */
 .dashboard-main {
-  width: min(100%, 1180px);
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: clamp(56px, 7vw, 92px) clamp(20px, 5vw, 56px) 100px;
+  padding: clamp(24px, 3.5vw, 38px) clamp(18px, 4vw, 44px) 110px;
+  box-sizing: border-box;
 }
 
+/* Welcome Section */
 .welcome-section {
-  margin-bottom: clamp(32px, 5vw, 48px);
-  animation: dashboardFade 420ms ease-out both;
+  margin-bottom: 24px;
 }
 
 .welcome-section h1 {
   margin: 0;
-  font-family: 'Manrope', sans-serif;
-  font-size: clamp(34px, 5vw, 58px);
-  letter-spacing: -0.045em;
-  line-height: 1.08;
+  font-family: 'Manrope', -apple-system, sans-serif;
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: var(--navy);
 }
 
 .welcome-section p {
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: clamp(16px, 2vw, 19px);
+  font-size: clamp(14px, 1.6vw, 16px);
+  font-weight: 500;
 }
 
-/* Direct links to every signed-in page */
-.dashboard-navigation {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: clamp(48px, 6vw, 72px);
+/* Day Selector Pills */
+.dashboard-day-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 20px;
+  margin-bottom: 8px;
+  user-select: none;
 }
 
-.navigation-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
+.dashboard-day-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.day-pill {
+  display: inline-flex;
   align-items: center;
-  min-width: 0;
-  padding: 19px;
-  color: var(--navy);
+  justify-content: center;
+  padding: 8px 18px;
+  border-radius: 9999px;
   background: var(--white);
-  border: 1px solid #e1e5eb;
-  border-radius: 13px;
-  box-shadow: 0 10px 28px rgba(25, 42, 72, 0.05);
-  text-decoration: none;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.navigation-card:hover,
-.navigation-card:focus-visible {
-  transform: translateY(-3px);
-  border-color: rgba(212, 154, 50, 0.65);
-  box-shadow: 0 14px 32px rgba(25, 42, 72, 0.1);
-}
-
-.navigation-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  background: #f2f4f7;
-  border-radius: 10px;
-  font-size: 19px;
-}
-
-.navigation-card strong,
-.navigation-card small {
-  display: block;
-}
-
-.navigation-card strong {
-  margin-bottom: 5px;
-  font-family: 'Manrope', sans-serif;
-  font-size: 15px;
-}
-
-.navigation-card small {
-  overflow: hidden;
+  border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  text-overflow: ellipsis;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(11, 33, 70, 0.03);
+  transition: all 160ms ease;
+  white-space: nowrap;
 }
 
-.navigation-arrow {
-  color: var(--accent);
-  font-size: 19px;
-  transition: transform 160ms ease;
+.day-pill:hover {
+  border-color: #cbd5e1;
+  color: var(--navy);
+  transform: translateY(-1px);
 }
 
-.navigation-card:hover .navigation-arrow,
-.navigation-card:focus-visible .navigation-arrow {
-  transform: translateX(3px);
+.day-pill.active {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+  box-shadow: 0 4px 12px rgba(11, 33, 70, 0.18);
 }
 
+/* Dashboard Grid Layout */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
-  gap: 50px 36px;
+  grid-template-columns: 1fr;
+  gap: 28px;
+}
+
+@media (min-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1.28fr) minmax(320px, 0.72fr);
+    gap: 32px;
+    align-items: start;
+  }
 }
 
 .dashboard-section h2 {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 18px;
-  font-size: 12px;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
 .next-class-section {
   grid-row: span 2;
 }
 
-/* Next-class card */
+/* Next Class Hero Card (Classic Light Deep Navy Border) */
 .next-class-card {
-  min-height: 270px;
-  padding: clamp(28px, 5vw, 48px);
-  color: var(--white);
-  background: var(--navy);
-  border-radius: 18px;
-  box-shadow: 0 24px 55px rgba(11, 33, 70, 0.18);
+  min-height: 220px;
+  padding: clamp(24px, 4vw, 36px);
+  background: var(--white);
+  border: 2px solid var(--navy);
+  border-radius: 20px;
+  box-shadow: 0 12px 36px -4px rgba(11, 33, 70, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  transition: box-shadow 200ms ease;
+}
+
+.next-class-card:hover {
+  box-shadow: 0 16px 42px -4px rgba(11, 33, 70, 0.12);
+}
+
+.next-class-card .class-badge {
+  display: inline-block;
+  align-self: flex-start;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.next-class-card .badge-next-status {
+  background: var(--navy) !important;
+  color: var(--white) !important;
+}
+
+.next-class-card .badge-current-status {
+  background: #fde8e8 !important;
+  color: #9c1414 !important;
 }
 
 .next-class-card h3 {
-  margin: 0 0 12px;
+  margin: 4px 0 10px;
   font-family: 'Manrope', sans-serif;
-  font-size: clamp(34px, 5vw, 50px);
-  letter-spacing: -0.04em;
+  font-size: clamp(22px, 3.2vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--navy);
 }
 
 .class-details {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 16px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
-.class-countdown {
-  display: inline-block;
-  margin: 48px 0 0;
-  padding: 9px 13px;
-  color: #f8d48c;
-  background: rgba(212, 154, 50, 0.12);
-  border: 1px solid rgba(212, 154, 50, 0.25);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* Important updates and upcoming events */
+/* Item List & Cards (Announcements & Events) */
 .item-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
 .dashboard-card {
   display: flex;
-  min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 22px;
-  padding: 21px 22px;
+  gap: 16px;
+  padding: 18px 20px;
   background: var(--white);
-  border: 1px solid #e1e5eb;
-  border-radius: 13px;
-  box-shadow: 0 10px 28px rgba(25, 42, 72, 0.06);
-  transition: transform 160ms ease, border-color 160ms ease;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(11, 33, 70, 0.04);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .dashboard-card:hover {
   transform: translateY(-2px);
-  border-color: #cbd2dc;
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(11, 33, 70, 0.08);
 }
 
 .dashboard-card h3 {
-  margin: 0 0 7px;
+  margin: 0 0 5px;
   font-family: 'Manrope', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
 }
 
 .dashboard-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .view-button {
-  flex: 0 0 auto;
-  padding: 8px 13px;
+  flex-shrink: 0;
+  padding: 6px 14px;
   color: var(--navy);
-  background: #f0f3f7;
-  border: 1px solid #dce2e9;
-  border-radius: 7px;
-  font-size: 12px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 700;
-  transition: color 160ms ease, background 160ms ease;
+  cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .view-button:hover {
-  color: var(--white);
   background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
 }
 
-.event-card {
-  display: block;
-}
-
+/* State Messages */
 .state-message {
-  margin: 0;
+  padding: 24px;
+  text-align: center;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--white);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
 }
 
 .next-class-card .state-message {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.error-message {
-  color: #b64343;
-}
-
-.next-class-card .error-message {
-  color: #ffd2d2;
+  background: transparent;
+  border: 0;
+  padding: 16px 0;
+  text-align: left;
 }
 
 .dashboard-footer {
-  padding: 30px 22px;
-  color: rgba(255, 255, 255, 0.68);
-  background: #07182f;
-  font-size: 13px;
   text-align: center;
-}
-
-@keyframes dashboardFade {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 820px) {
-  .dashboard-navigation {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .next-class-section {
-    grid-row: auto;
-  }
-
-  .next-class-card {
-    min-height: 235px;
-  }
-}
-
-@media (max-width: 520px) {
-  .dashboard-header {
-    min-height: 68px;
-    padding: 12px 16px;
-  }
-
-  .dashboard-brand {
-    font-size: 16px;
-  }
-
-  .dashboard-actions button,
-  .dashboard-actions a {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-  }
-
-  .dashboard-main {
-    padding: 48px 17px 72px;
-  }
-
-  .dashboard-grid {
-    gap: 42px;
-  }
-
-  .dashboard-navigation {
-    gap: 10px;
-  }
-
-  .navigation-card {
-    padding: 16px;
-  }
-
-  .next-class-card {
-    min-height: 220px;
-    padding: 28px 24px;
-    border-radius: 14px;
-  }
-
-  .class-countdown {
-    margin-top: 38px;
-  }
-
-  .dashboard-card {
-    align-items: flex-start;
-    padding: 19px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .welcome-section {
-    animation: none;
-  }
+  padding: 24px 16px;
+  color: #94a3b8;
+  font-size: 12px;
+  border-top: 1px solid var(--line);
 }

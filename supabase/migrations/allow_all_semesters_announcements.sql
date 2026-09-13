@@ -1,5 +1,5 @@
 -- Migration: allow_all_semesters_announcements.sql
--- Enables announcements to target "ALL" semesters (and branches)
+-- Enables announcements and events to target "ALL" semesters and "ALL" branches
 -- so announcements reach all registered students, CRs, and faculty.
 
 -- 1. Relax target_semester NOT NULL and update semester check constraint
@@ -39,10 +39,33 @@ alter table public.announcements
   add constraint announcements_section_valid
   check (
     target_section is null
-    or upper(target_section) in ('A', 'B', 'C', 'D', 'E', 'ALL')
+    or (btrim(target_section) <> '' and target_section = upper(target_section))
   );
 
--- 4. Update can_view_announcement so ALL semesters/branches reach all registered students and CRs
+-- 4. Ensure created_by defaults to the authenticated user and has safety trigger
+alter table public.announcements
+  alter column created_by set default auth.uid();
+
+create or replace function public.handle_announcement_defaults()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $$
+begin
+  if new.created_by is null then
+    new.created_by := auth.uid();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists announcement_set_defaults on public.announcements;
+create trigger announcement_set_defaults
+before insert on public.announcements
+for each row execute function public.handle_announcement_defaults();
+
+-- 5. Update can_view_announcement so ALL semesters/branches reach all registered students and CRs
 create or replace function public.can_view_announcement(
   announcement_semester integer,
   announcement_branch text,
@@ -63,7 +86,7 @@ as $$
       and (
         -- Case 1: Student or Class Leader (CR)
         (
-          profile.role in ('student', 'class_leader')
+          profile.role in ('student', 'class_leader', 'cr')
           and (
             -- Semester: ALL (null / 0) or exact match
             announcement_semester is null
@@ -126,7 +149,7 @@ as $$
   );
 $$;
 
--- 5. Update can_manage_announcement_target for professors and CRs
+-- 6. Update can_manage_announcement_target for professors and CRs
 create or replace function public.can_manage_announcement_target(
   announcement_semester integer,
   announcement_branch text,
@@ -143,7 +166,7 @@ as $$
     when public.get_current_user_role() = 'professor' then true
 
     -- Class Leaders (CRs)
-    when public.get_current_user_role() = 'class_leader' then (
+    when public.get_current_user_role() in ('class_leader', 'cr') then (
       case
         -- ALL semesters: allowed for CRs
         when announcement_semester is null or announcement_semester = 0 then true
@@ -155,7 +178,7 @@ as $$
             left join public.sections section_record
               on section_record.id = profile.section_id
             where profile.id = auth.uid()
-              and profile.role = 'class_leader'
+              and profile.role in ('class_leader', 'cr')
               and (
                 announcement_branch is null
                 or upper(btrim(announcement_branch)) = 'ALL'
@@ -173,11 +196,14 @@ as $$
   end;
 $$;
 
--- 6. Refresh RLS policies on public.announcements
+-- 7. Refresh RLS policies on public.announcements (drop all variations)
 drop policy if exists announcements_select_targeted on public.announcements;
 drop policy if exists announcements_insert_scoped on public.announcements;
 drop policy if exists announcements_update_scoped on public.announcements;
 drop policy if exists announcements_delete_scoped on public.announcements;
+drop policy if exists announcements_insert_staff on public.announcements;
+drop policy if exists announcements_update_staff on public.announcements;
+drop policy if exists announcements_delete_staff on public.announcements;
 
 create policy announcements_select_targeted
 on public.announcements for select
@@ -195,7 +221,7 @@ create policy announcements_insert_scoped
 on public.announcements for insert
 to authenticated
 with check (
-  created_by = auth.uid()
+  (created_by is null or created_by = auth.uid())
   and public.can_manage_announcement_target(
     target_semester,
     target_branch,
@@ -233,3 +259,8 @@ using (
     target_section
   )
 );
+
+-- 8. Explicit API and function grants
+grant select, insert, update, delete on table public.announcements to authenticated;
+grant execute on function public.can_view_announcement(integer, text, text) to authenticated;
+grant execute on function public.can_manage_announcement_target(integer, text, text) to authenticated;

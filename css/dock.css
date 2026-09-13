@@ -1,0 +1,120 @@
+/* ==========================================================
+   IIITDM Jabalpur Campus Companion - Mobile Slideable Dock CSS
+   Apple, WhatsApp & Instagram Style Frosted-Glass Floating Dock
+   ========================================================== */
+
+.mobile-dock-wrapper {
+  position: fixed;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 28px), 360px);
+  z-index: 50;
+  user-select: none;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms ease;
+  will-change: transform, opacity;
+}
+
+/* Auto-hide slide state (triggered by scroll down) */
+.mobile-dock-wrapper.dock-hidden {
+  transform: translate(-50%, 140%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-dock {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(11, 33, 70, 0.08);
+  border-radius: 9999px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  box-shadow: 0 16px 36px -4px rgba(11, 33, 70, 0.14), 0 2px 8px rgba(0, 0, 0, 0.03);
+  position: relative;
+}
+
+/* Dock Tabs */
+.dock-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 48px;
+  border-radius: 18px;
+  color: #657188;
+  text-decoration: none;
+  position: relative;
+  transition: all 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.dock-tab:active {
+  transform: scale(0.92);
+}
+
+.dock-tab svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+  transition: transform 200ms ease;
+}
+
+.dock-tab span.dock-label {
+  display: none;
+}
+
+/* Active State: Deep classic navy rounded squircle button */
+.dock-tab.active {
+  background: #0b2146;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(11, 33, 70, 0.24);
+}
+
+.dock-tab.active svg {
+  transform: scale(1.05);
+}
+
+/* Unread alert dot on dock */
+.dock-tab .dock-alert-dot {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e11d48;
+}
+
+/* Calendar Date Badge inside Calendar Icon */
+.dock-calendar-date {
+  position: absolute;
+  font-size: 8px;
+  font-weight: 900;
+  top: 23px;
+  letter-spacing: -0.02em;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Active Sub-Dot Indicator beneath Active Dock Icon */
+.dock-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Hide Mobile Dock on Desktop Screens (>= 900px) */
+@media (min-width: 900px) {
+  .mobile-dock-wrapper {
+    display: none !important;
+  }
+}
